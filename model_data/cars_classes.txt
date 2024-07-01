@@ -1,0 +1,5 @@
+bus
+car
+heavy_truck
+medium_truck
+midget_truck

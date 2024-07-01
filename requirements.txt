@@ -1,0 +1,14 @@
+pip install numpy -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install opencv-python -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install onnx -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install onnxsim -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install onnxruntime -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install chardet -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install cchardet -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install scipy -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install lap -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install Cython -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install matplotlib -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install dipy -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install pycocotools
+cython_bbox-0.1.3
