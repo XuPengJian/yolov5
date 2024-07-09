@@ -29,7 +29,7 @@ import warnings
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 warnings.filterwarnings("ignore")  # 忽略版本警告信息
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '2,0'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 
 '''
 推理超参设置
