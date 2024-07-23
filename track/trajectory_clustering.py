@@ -5,6 +5,7 @@ import numpy as np
 import math
 from math import pi
 import cv2
+from PIL import Image
 import imageio.v2 as iio
 
 import matplotlib.pyplot as plt
@@ -221,7 +222,10 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     # 满足最大长度的一定范围
     tmp_dic = deepcopy(track_dic)
     tmp_cls_dic = deepcopy(cls_track_dic)
+    # print("track_dic", track_dic)
+    # print("cls_track_dic", cls_track_dic)
     track_dic = {}
+    # todo:这个cls_track_dic可以用来提取类别
     cls_track_dic = {}
     k = 0
 
@@ -432,9 +436,10 @@ if __name__ == '__main__':
     # T字路口
     w = 2720
     h = 1530
-    txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230216_173537.txt'
-    txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230306_125315_20230307_113501.txt'  # 颜色测试
-    image_path = r'E:\gitlab\cars_detection\yolov5\img\1.jpg'
+
+
+    txt_path = r'E:\项目\车流量计数平台\轨迹聚类测试\正式项目.txt'
+    image_path = r'E:\项目\车流量计数平台\轨迹聚类测试\正式项目.jpg'
     # # 分叉路口
     # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230216_180948.txt'
     # image_path = r'E:\gitlab\cars_detection\yolov5\img\2.jpg'
@@ -449,8 +454,10 @@ if __name__ == '__main__':
     # h = 1080
     # # 十字路口1
     # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230224_123918.txt'
-
-    img_base = cv2.imread(image_path)
+    img_pil = Image.open(image_path)
+    img_cv2 = np.array(img_pil)
+    img_base = cv2.cvtColor(img_cv2, cv2.COLOR_RGB2BGR)
+    h, w = img_base.shape[:2]
 
     # 1.matplotlib可视化测试
     track_dic = cluster_tracks(txt_path, h, w)[0]
