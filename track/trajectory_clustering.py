@@ -429,17 +429,11 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
 
 
 if __name__ == '__main__':
-    # 基础参数
-
-    w = 3840
-    h = 2160
-    # T字路口
-    w = 2720
-    h = 1530
-
-
+    # 读取的txt数据
     txt_path = r'E:\项目\车流量计数平台\轨迹聚类测试\正式项目.txt'
+    # 底图图片
     image_path = r'E:\项目\车流量计数平台\轨迹聚类测试\正式项目.jpg'
+
     # # 分叉路口
     # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230216_180948.txt'
     # image_path = r'E:\gitlab\cars_detection\yolov5\img\2.jpg'
@@ -454,6 +448,7 @@ if __name__ == '__main__':
     # h = 1080
     # # 十字路口1
     # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230224_123918.txt'
+
     img_pil = Image.open(image_path)
     img_cv2 = np.array(img_pil)
     img_base = cv2.cvtColor(img_cv2, cv2.COLOR_RGB2BGR)
