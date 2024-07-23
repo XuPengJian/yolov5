@@ -51,6 +51,8 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     points = []
     w_size_list = []  # 用于记录w的尺寸(归一化结果)
     h_size_list = []  # 用于记录h的尺寸(归一化结果)
+
+    # 遍历txt每一行数据
     for line in lines:
         frame, id, x1, y1, x2, y2, conf, cls = line.split(',')
         cls = int(cls.replace('/n', ''))
@@ -63,8 +65,11 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         points.append([x_center, y_center])
         w_size_list.append(anchor_w)
         h_size_list.append(anchor_h)
+        # 将同一id的车的中心点xy，写入到轨迹字典中
         if id in trajectory:
+            # 将同一id的车的中心点xy
             trajectory[id].append([x_center, y_center])
+            # 记录该id对应的类别
             cls_trajectory[id].append(cls)
         else:
             trajectory[id] = [[x_center, y_center]]
@@ -86,9 +91,13 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
 
     # ------------先筛选点太少和长度太短的轨迹(前期筛选,于执行算法前)------------
     del_keys = []
+    # 遍历每个id的轨迹
     for key in trajectory:
+        # 计算轨迹长度
         max_length = cal_trajectory_length(trajectory[key])
+        # 点数小于阈值或者长度小于阈值的轨迹进行删除
         if len(trajectory[key]) < min_points_count or max_length < min_length:
+            # 记录需要删除id的轨迹
             del_keys.append(key)
 
     # 根据key删除不要的轨迹
@@ -100,7 +109,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     trajectory_list = []  # 轨迹信息
     cls_trajectory_list = []  # 类别信息
 
-    # 曲线重采样(第一次)
+    # 曲线重采样，一种非线性的重采样，并让点变得均分(第一次)
     for key in trajectory:
         # 在此处resample_points,将点数据转化为numpy格式了
         points_new = resample_points(trajectory[key], num_points=32)
@@ -109,7 +118,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         # 得到新的点,放入到适当位置
         trajectory[key] = points_new
 
-    # 再次曲线重采样,让点变得均分(第二次)
+    # 再次曲线重采样，因为做了延长操作，所以点又变的不均分了,所以希望让点变得均分(第二次)
     for key in trajectory:
         # 在此处resample_points,将点数据转化为numpy格式了
         points_new = resample_points(trajectory[key], num_points=24)
@@ -164,6 +173,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         start_pt = base_traj[0]
         end_pt = base_traj[-1]
         base_vector = end_pt - start_pt  # vector为numpy格式
+        base_vector = normalize(base_vector)
 
         # 再遍历每一个轨迹id,计算向量
         for i, traj_id in enumerate(cls.indices):
@@ -177,7 +187,9 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
             # 求向量余弦值与正弦值
             cos = sum(base_vector * vector)  # 余弦值
             cos = np.clip(cos, -1, 1)  # 将cos结果限制在-1~1之间
-            sin = sum(np.flip(base_vector) * vector)  # 正弦值
+            # sin = sum(np.flip(base_vector) * vector)  # 正弦值
+            sin = base_vector[1]*vector[0]-base_vector[0]*vector[1]
+            # print(sin ** 2 + cos ** 2)
             sin = np.clip(sin, -1, 1)  # 将sin结果限制在-1~1之间
             # 计算相关性,与10度倍数的关系
             # 分情况分类,基于cos,sin函数的特点(注意sin划分线都不能搞到位于0,pi,2pi的位置)
@@ -430,9 +442,9 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = r'E:\项目\车流量计数平台\轨迹聚类测试\正式项目.txt'
+    txt_path = r'E:\项目\车流量计数平台\轨迹聚类测试\2.txt'
     # 底图图片
-    image_path = r'E:\项目\车流量计数平台\轨迹聚类测试\正式项目.jpg'
+    image_path = r'E:\项目\车流量计数平台\轨迹聚类测试\2.jpg'
 
     # # 分叉路口
     # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230216_180948.txt'
