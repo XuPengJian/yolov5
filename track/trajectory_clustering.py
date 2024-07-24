@@ -453,8 +453,8 @@ if __name__ == '__main__':
     # 底图图片
     image_path = rf'example\5.jpg'
     # 超参
-    threshold = 0.15
-    min_cars = 5
+    threshold = 0.125
+    min_cars = 7
 
 
     # # 分叉路口
@@ -492,6 +492,10 @@ if __name__ == '__main__':
                 points.append(list(pt))
         points = np.array(points)
         plt.plot(points[:, 0], points[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor=tuple(col), markersize=1)
+
+    # 反转y轴方向
+    plt.gca().invert_yaxis()
+
     plt.show()
 
     # 2.cv2绘图测试
