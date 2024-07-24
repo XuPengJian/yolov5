@@ -54,7 +54,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
 
     # 遍历txt每一行数据
     for line in lines:
-        info_list = line.replace('\n', '').split(',')
+        info_list = line.replace('\n', '').split(',')[0:8]
         frame, id, x1, y1, x2, y2, conf, cls = info_list
         cls = int(cls)
         # 这里面的坐标长度都是经过归一化处理过之后的
@@ -500,7 +500,7 @@ def output_result_txt(txt_path, id_track_dic):
     # 遍历txt每一行数据
     for line in lines:
         info_list = line.replace('\n', '').split(',')
-        frame, id, x1, y1, x2, y2, conf, cls = info_list
+        frame, id, x1, y1, x2, y2, conf, cls = info_list[0:8]
 
         # 新建一个列表用于存储过滤后的数据
         for key in id_track_dic:
