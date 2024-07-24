@@ -460,15 +460,18 @@ def visualize_tracks(track_dic):
                 points.append(list(pt))
         points = np.array(points)
         plt.plot(points[:, 0], points[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor=tuple(col), markersize=1)
+    # 设置坐标轴范围
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
     # 反转y轴方向
     plt.gca().invert_yaxis()
     plt.show()
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = rf'example\5.txt'
+    txt_path = rf'example\2.txt'
     # 底图图片
-    image_path = rf'example\5.jpg'
+    image_path = rf'example\2.jpg'
     # 超参
     threshold = 0.125
     min_cars = 7
