@@ -449,10 +449,8 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
 
 if __name__ == '__main__':
     # 读取的txt数据
-    # txt_path = r'example\0.txt'
     txt_path = rf'example\5.txt'
     # 底图图片
-    # image_path = r'example\0.jpg'
     image_path = rf'example\5.jpg'
     # 超参
     threshold = 0.15
