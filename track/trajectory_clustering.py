@@ -448,55 +448,58 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
 
 
 if __name__ == '__main__':
-    # 读取的txt数据
-    txt_path = r'example\5.txt'
-    # 底图图片
-    image_path = r'example\5.jpg'
-    # 超参
-    threshold = 0.125
-    min_cars = 5
+    for i in range(6):
+        # 读取的txt数据
+        # txt_path = r'example\0.txt'
+        txt_path = rf'example\{i}.txt'
+        # 底图图片
+        # image_path = r'example\0.jpg'
+        image_path = rf'example\{i}.jpg'
+        # 超参
+        threshold = 0.125
+        min_cars = 5
 
 
-    # # 分叉路口
-    # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230216_180948.txt'
-    # image_path = r'E:\gitlab\cars_detection\yolov5\img\2.jpg'
-    #
-    # # 十字路口0
-    # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230222_164224.txt'
-    # # 直行分岔
-    # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230223_124258.txt'
+        # # 分叉路口
+        # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230216_180948.txt'
+        # image_path = r'E:\gitlab\cars_detection\yolov5\img\2.jpg'
+        #
+        # # 十字路口0
+        # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230222_164224.txt'
+        # # 直行分岔
+        # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230223_124258.txt'
 
-    # ------十字路口测试------
-    # w = 1920
-    # h = 1080
-    # # 十字路口1
-    # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230224_123918.txt'
+        # ------十字路口测试------
+        # w = 1920
+        # h = 1080
+        # # 十字路口1
+        # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230224_123918.txt'
 
-    img_pil = Image.open(image_path)
-    img_cv2 = np.array(img_pil)
-    img_base = cv2.cvtColor(img_cv2, cv2.COLOR_RGB2BGR)
-    h, w = img_base.shape[:2]
+        img_pil = Image.open(image_path)
+        img_cv2 = np.array(img_pil)
+        img_base = cv2.cvtColor(img_cv2, cv2.COLOR_RGB2BGR)
+        h, w = img_base.shape[:2]
 
-    # 1.matplotlib可视化测试
-    track_dic = cluster_tracks(txt_path, h, w)[0]
-    # QB算法结果可视化()以点的形式
-    colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(track_dic))]
-    # 遍历每一个类型
-    for k, col in zip(track_dic, colors):
-        points = []
-        # 遍历每一条轨迹
-        for traj in track_dic[k]:
-            # 遍历轨迹中的每一个点
-            for pt in traj:
-                # 将同类的轨迹放在一个points里
-                points.append(list(pt))
-        points = np.array(points)
-        plt.plot(points[:, 0], points[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor=tuple(col), markersize=1)
-    plt.show()
+        # 1.matplotlib可视化测试
+        track_dic = cluster_tracks(txt_path, h, w)[0]
+        # QB算法结果可视化()以点的形式
+        colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(track_dic))]
+        # 遍历每一个类型
+        for k, col in zip(track_dic, colors):
+            points = []
+            # 遍历每一条轨迹
+            for traj in track_dic[k]:
+                # 遍历轨迹中的每一个点
+                for pt in traj:
+                    # 将同类的轨迹放在一个points里
+                    points.append(list(pt))
+            points = np.array(points)
+            plt.plot(points[:, 0], points[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor=tuple(col), markersize=1)
+        plt.show()
 
-    # 2.cv2绘图测试
-    count_result = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
-    # print('count_result:', count_result)
+        # 2.cv2绘图测试
+        count_result = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
+        # print('count_result:', count_result)
 
 # # QB算法结果可视化
 # colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(clusters))]
