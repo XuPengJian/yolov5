@@ -469,9 +469,9 @@ def visualize_tracks(track_dic):
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = rf'example\2.txt'
+    txt_path = rf'example\5.txt'
     # 底图图片
-    image_path = rf'example\2.jpg'
+    image_path = rf'example\5.jpg'
     # 超参
     threshold = 0.125
     min_cars = 7
