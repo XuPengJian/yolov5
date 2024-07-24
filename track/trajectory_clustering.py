@@ -446,39 +446,7 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     print(front_colors)
     return count_result, front_colors
 
-
-if __name__ == '__main__':
-    # 读取的txt数据
-    txt_path = rf'example\5.txt'
-    # 底图图片
-    image_path = rf'example\5.jpg'
-    # 超参
-    threshold = 0.125
-    min_cars = 7
-
-
-    # # 分叉路口
-    # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230216_180948.txt'
-    # image_path = r'E:\gitlab\cars_detection\yolov5\img\2.jpg'
-    #
-    # # 十字路口0
-    # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230222_164224.txt'
-    # # 直行分岔
-    # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230223_124258.txt'
-
-    # ------十字路口测试------
-    # w = 1920
-    # h = 1080
-    # # 十字路口1
-    # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230224_123918.txt'
-
-    img_pil = Image.open(image_path)
-    img_cv2 = np.array(img_pil)
-    img_base = cv2.cvtColor(img_cv2, cv2.COLOR_RGB2BGR)
-    h, w = img_base.shape[:2]
-
-    # 1.matplotlib可视化测试
-    track_dic = cluster_tracks(txt_path, h, w)[0]
+def visualize_tracks(track_dic):
     # QB算法结果可视化()以点的形式
     colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(track_dic))]
     # 遍历每一个类型
@@ -492,13 +460,30 @@ if __name__ == '__main__':
                 points.append(list(pt))
         points = np.array(points)
         plt.plot(points[:, 0], points[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor=tuple(col), markersize=1)
-
     # 反转y轴方向
     plt.gca().invert_yaxis()
-
     plt.show()
 
-    # 2.cv2绘图测试
+if __name__ == '__main__':
+    # 读取的txt数据
+    txt_path = rf'example\5.txt'
+    # 底图图片
+    image_path = rf'example\5.jpg'
+    # 超参
+    threshold = 0.125
+    min_cars = 7
+
+    # 读取图片
+    img_pil = Image.open(image_path)
+    img_cv2 = np.array(img_pil)
+    img_base = cv2.cvtColor(img_cv2, cv2.COLOR_RGB2BGR)
+    h, w = img_base.shape[:2]
+
+    # 1.matplotlib可视化测试（用于测试检查）
+    track_dic = cluster_tracks(txt_path, h, w)[0]
+    visualize_tracks(track_dic)
+
+    # 2.cv2绘图测试（实际用于可视化绘图的）
     count_result = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
     # print('count_result:', count_result)
 
