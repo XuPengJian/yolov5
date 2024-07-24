@@ -491,6 +491,29 @@ def visualize_tracks(track_dic):
     plt.show()
 
 
+# 生成过滤后，并拥有轨迹类别的txt文件
+def output_result_txt(txt_path, id_track_dic):
+
+    new_lines = []
+    with open(txt_path, 'r') as f:
+        lines = f.readlines()
+    # 遍历txt每一行数据
+    for line in lines:
+        info_list = line.replace('\n', '').split(',')
+        frame, id, x1, y1, x2, y2, conf, cls = info_list
+
+        # 新建一个列表用于存储过滤后的数据
+        for key in id_track_dic:
+            if id in id_track_dic[key]:
+                new_lines.append([frame, id, x1, y1, x2, y2, conf, cls, str(key)])
+
+    output_txt = txt_path.replace('.txt', '_result.txt')
+    with open(output_txt, 'w') as f:
+        for sublist in new_lines:
+            line = ','.join(sublist)
+            f.write(line + '\n')
+
+
 if __name__ == '__main__':
     # 读取的txt数据
     txt_path = r'example\5.txt'
@@ -509,6 +532,7 @@ if __name__ == '__main__':
     # 1.matplotlib可视化测试（用于测试检查）
     track_dic, track_cls_dic, id_track_dic = cluster_tracks(txt_path, h, w)[0:3]
     visualize_tracks(track_dic)
+    output_result_txt(txt_path, id_track_dic)
 
     # 2.cv2绘图测试（实际用于可视化绘图的）
     count_result, front_colors = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
