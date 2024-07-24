@@ -429,7 +429,8 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     img = 0.1 * img_base + img
     tmp_frame = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_BGR2RGB)
     # iio.imwrite(txt_path.split('.')[0] + '.jpg', tmp_frame)
-    iio.imwrite(txt_path.replace('.txt', f'_{str(threshold).replace(".", "")}_{min_cars}.jpg'), tmp_frame)
+    # iio.imwrite(txt_path.replace('.txt', f'_{str(threshold).replace(".", "")}_{min_cars}.jpg'), tmp_frame)
+    iio.imwrite(txt_path.replace('.txt', f'_result.jpg'), tmp_frame)
 
     # 作为后端输出的数据,列表套列表的格式
     track_count = []
@@ -448,9 +449,13 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = r'E:\项目\车流量计数平台\轨迹聚类测试\4.txt'
+    txt_path = r'example\5.txt'
     # 底图图片
-    image_path = r'E:\项目\车流量计数平台\轨迹聚类测试\4.jpg'
+    image_path = r'example\5.jpg'
+    # 超参
+    threshold = 0.125
+    min_cars = 5
+
 
     # # 分叉路口
     # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230216_180948.txt'
@@ -490,7 +495,7 @@ if __name__ == '__main__':
     plt.show()
 
     # 2.cv2绘图测试
-    count_result = draw_lines(img_base, txt_path, threshold=0.125, min_cars=5)
+    count_result = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
     print('count_result:', count_result)
 
 # # QB算法结果可视化
