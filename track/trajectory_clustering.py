@@ -56,6 +56,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     for line in lines:
         frame, id, x1, y1, x2, y2, conf, cls = line.split(',')
         cls = int(cls.replace('/n', ''))
+        # 这里面的坐标长度都是经过归一化处理过之后的
         x_center = (float(x1) + float(x2)) / (2 * w)
         y_center = (float(y1) + float(y2)) / (2 * h)
         anchor_w = (float(x2) - float(x1)) / w
@@ -188,7 +189,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
             cos = sum(base_vector * vector)  # 余弦值
             cos = np.clip(cos, -1, 1)  # 将cos结果限制在-1~1之间
             # sin = sum(np.flip(base_vector) * vector)  # 正弦值
-            sin = base_vector[1]*vector[0]-base_vector[0]*vector[1]
+            sin = base_vector[1] * vector[0] - base_vector[0] * vector[1]
             # print(sin ** 2 + cos ** 2)
             sin = np.clip(sin, -1, 1)  # 将sin结果限制在-1~1之间
             # 计算相关性,与10度倍数的关系
@@ -199,7 +200,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
             # 先通过cos判断方向正反
             # 正(0 < cos < 1)
             if 0 <= cos:
-                # 再判断sin值(注意要先偏移一个角度)
+                # 再判断sin值(注意要先偏移一个小角度，因为我们不希望有压着边线的情况，不想压着横平竖直的方位进行划分)
                 for i in range(angle // 2):
                     if math.sin(-pi / 2 + (2 * pi / angle) * i) <= math.sin(math.asin(sin) + pi / angle) <= math.sin(
                             -pi / 2 + (2 * pi / angle) * (i + 1)):
@@ -213,7 +214,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
                             cls_track_dic[k + i].append(new_cls)
             # 反(-1 <= cos <= 0)
             else:
-                # 再判断sin值(注意要先偏移一个角度)
+                # 再判断sin值(注意要先偏移一个角度，因为我们不希望有压着边线的情况，不想压着横平竖直的方位进行划分)
                 for i in range(angle // 2):
                     if math.sin(-pi / 2 + (2 * pi / angle) * i) <= math.sin(math.asin(sin) + pi / angle) <= math.sin(
                             -pi / 2 + (2 * pi / angle) * (i + 1)):
@@ -226,8 +227,9 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
                             track_dic[k + i + angle // 2].append(new_traj)
                             cls_track_dic[k + i + angle // 2].append(new_cls)
 
-        # 一个打类整体迈进n个小类
-        k += angle * 2  # 一般来说,是将上面的一大类再根据方向划分为36大类(每10度一类,但实际上有些类有可能是空的),长度再分两类,所以乘以2
+        # 一个大类整体再分k个小类
+        # 这个k是用作标签的，是个兼容性误差的东西，一定要防止标签重复的情况
+        k += angle  # 一般来说,是将上面的一大类再根据方向划分为36大类(每10度一类,但实际上有些类有可能是空的),长度再分两类（后面才用到，这里先预留一下空间，好像根本不需要，后面会另外再分）,所以乘以2
 
     # -----------------基于长度信息(轨迹)聚类---------------------
     # 再基于长度聚类分为,每个类别分两类
@@ -237,23 +239,26 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     # print("track_dic", track_dic)
     # print("cls_track_dic", cls_track_dic)
     track_dic = {}
-    # todo:这个cls_track_dic可以用来提取类别
     cls_track_dic = {}
+    # 初始化分类标签key值
     k = 0
-
     # 遍历每一个类别
     for key in tmp_dic:
         tracks_length_list = []
         # 遍历每一条轨迹得到长度信息
         for traj in tmp_dic[key]:
+            # 计算每一条轨迹的长度
             length = cal_trajectory_length(traj)
             tracks_length_list.append(length)
+        # 获取某一类别轨迹的最大长度
         max_length = max(tracks_length_list)
+        # 索引值
         i = 0
         # 遍历每一条轨迹
         for traj, cls in zip(tmp_dic[key], tmp_cls_dic[key]):
-            # 长度判断（范围设置为0.1）
-            if tracks_length_list[i] >= max_length - 0.1:
+            # 长度判断（范围设置为0.1，这里面的计算都是归一化之后的长度，都是一些小数值）
+            # 改为设置为最大长度的0.9倍吧
+            if tracks_length_list[i] >= 0.9 * max_length:
                 # 如果该类不在字典中,则需要新建一个列表
                 if k not in track_dic:
                     track_dic[k] = [traj]
@@ -286,6 +291,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
 
     track_count = []
     track_cls_dic = {}
+    # todo:这里如果改成记录所有的info,就不能简单用这个count来计算类别数量，可能需要用for循环进行统计
     # 遍历每一个类轨迹
     for key in track_dic:
         bus = cls_track_dic[key].count(0)
@@ -315,7 +321,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         del track_dic[key]
         del track_cls_dic[key]
 
-    # 重命名字典的key
+    # 重命名字典的key（每次删完轨迹重新让key从0按顺序开始的逻辑）
     tmp_dic = {}
     tmp_cls_dic = {}
     for i, key in enumerate(track_dic):
@@ -323,7 +329,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         tmp_cls_dic[i] = track_cls_dic[key]
 
     # 根据轨迹的总数对字典顺序重新排序
-    # 数量与百分比计算
+    # 各轨迹总数与各轨迹总数百分比计算
     track_count = []
     for key in track_cls_dic:
         track_count.append(sum(track_cls_dic[key]))
@@ -333,7 +339,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     rank_key = np.argsort(-track_count_percentage)  # 排序index(大到小)
     track_count_percentage = np.flip(np.sort(track_count_percentage))  # 排序最终结果(大到小)
 
-    # 得到排序后的字典(最终确定)
+    # 得到排序后的字典(最终确定，每次删完轨迹重新让key从0按顺序开始的逻辑，这里感觉略显多余，明明前面已经处理了一遍)
     track_dic = {}
     track_cls_dic = {}
     for i, key in enumerate(rank_key):
@@ -442,9 +448,9 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = r'E:\项目\车流量计数平台\轨迹聚类测试\2.txt'
+    txt_path = r'E:\项目\车流量计数平台\轨迹聚类测试\4.txt'
     # 底图图片
-    image_path = r'E:\项目\车流量计数平台\轨迹聚类测试\2.jpg'
+    image_path = r'E:\项目\车流量计数平台\轨迹聚类测试\4.jpg'
 
     # # 分叉路口
     # txt_path = r'E:\gitlab\cars_detection\yolov5\img\xupengjian_20230216_180948.txt'
