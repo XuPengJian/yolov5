@@ -54,8 +54,9 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
 
     # 遍历txt每一行数据
     for line in lines:
-        frame, id, x1, y1, x2, y2, conf, cls = line.split(',')
-        cls = int(cls.replace('/n', ''))
+        info_list = line.replace('\n', '').split(',')
+        frame, id, x1, y1, x2, y2, conf, cls = info_list
+        cls = int(cls)
         # 这里面的坐标长度都是经过归一化处理过之后的
         x_center = (float(x1) + float(x2)) / (2 * w)
         y_center = (float(y1) + float(y2)) / (2 * h)
@@ -70,11 +71,11 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         if id in trajectory:
             # 将同一id的车的中心点xy
             trajectory[id].append([x_center, y_center])
-            # 记录该id对应的类别
-            cls_trajectory[id].append(cls)
+            # 记录该id对应的类别(这里其实会重复append，所以这里不需要append了，直接在else赋值一个就行)
+            # cls_trajectory[id].append(cls)
         else:
             trajectory[id] = [[x_center, y_center]]
-            cls_trajectory[id] = [cls]
+            cls_trajectory[id] = cls
 
     # 获取处于中位数的anchor尺寸,然后取一个最小的
     # w_size_list.sort()
@@ -106,9 +107,10 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         del trajectory[key]
         del cls_trajectory[key]
 
-    # 因为字典是无序的，不方便后续索引，所以转成list
+    # 因为字典是无序的(其实是按照车辆id来排)，不方便后续索引，所以转成list
     trajectory_list = []  # 轨迹信息
     cls_trajectory_list = []  # 类别信息
+    id_trajectory_list = []  # 车辆id信息（保留下来的id，后面也要跟着聚类之后的分类来走）
 
     # 曲线重采样，一种非线性的重采样，并让点变得均分(第一次)
     for key in trajectory:
@@ -128,6 +130,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         # 得到新的点,放入到轨迹列表中
         trajectory_list.append(points_new)
         cls_trajectory_list.append(cls_trajectory[key])
+        id_trajectory_list.append(key)
 
     # trajs = []
     # # 将数据改为三维的，以符合QuickBundle算法需求
@@ -153,6 +156,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     # 创建一个储存不同类型轨迹的列表
     track_dic = {}
     cls_track_dic = {}
+    id_track_dic = {}
     # 记录轨迹类型,作为初始化类型
     k = 0
     # 角度等分数量(必须为2的倍数哈,最好是6的倍数) 角度为360/angle
@@ -179,7 +183,8 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         # 再遍历每一个轨迹id,计算向量
         for i, traj_id in enumerate(cls.indices):
             new_traj = trajectory_list[traj_id]  # 得到每一条轨迹
-            new_cls = cls_trajectory_list[traj_id][0]  # 得到每一条轨迹的类型,取出其中一个就行
+            new_cls = cls_trajectory_list[traj_id]  # 得到每一条轨迹的类型
+            new_id = id_trajectory_list[traj_id]  # 得到每一条轨迹的车辆id
             start_pt = new_traj[0]
             end_pt = new_traj[-1]
             vector = end_pt - start_pt
@@ -208,10 +213,12 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
                         if k + i not in track_dic:
                             track_dic[k + i] = [new_traj]
                             cls_track_dic[k + i] = [new_cls]
+                            id_track_dic[k + i] = [new_id]
                         # 如果该类别已存在,那么直接
                         else:
                             track_dic[k + i].append(new_traj)
                             cls_track_dic[k + i].append(new_cls)
+                            id_track_dic[k + i].append(new_id)
             # 反(-1 <= cos <= 0)
             else:
                 # 再判断sin值(注意要先偏移一个角度，因为我们不希望有压着边线的情况，不想压着横平竖直的方位进行划分)
@@ -222,10 +229,12 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
                         if k + i + angle // 2 not in track_dic:
                             track_dic[k + i + angle // 2] = [new_traj]
                             cls_track_dic[k + i + angle // 2] = [new_cls]
+                            id_track_dic[k + i + angle // 2] = [new_id]
                         # 如果该类别已存在,那么直接
                         else:
                             track_dic[k + i + angle // 2].append(new_traj)
                             cls_track_dic[k + i + angle // 2].append(new_cls)
+                            id_track_dic[k + i + angle // 2].append(new_id)
 
         # 一个大类整体再分k个小类
         # 这个k是用作标签的，是个兼容性误差的东西，一定要防止标签重复的情况
@@ -236,10 +245,12 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     # 满足最大长度的一定范围
     tmp_dic = deepcopy(track_dic)
     tmp_cls_dic = deepcopy(cls_track_dic)
+    tmp_id_dic = deepcopy(id_track_dic)
     # print("track_dic", track_dic)
     # print("cls_track_dic", cls_track_dic)
     track_dic = {}
     cls_track_dic = {}
+    id_track_dic = {}
     # 初始化分类标签key值
     k = 0
     # 遍历每一个类别
@@ -255,7 +266,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         # 索引值
         i = 0
         # 遍历每一条轨迹
-        for traj, cls in zip(tmp_dic[key], tmp_cls_dic[key]):
+        for traj, cls, id in zip(tmp_dic[key], tmp_cls_dic[key], tmp_id_dic[key]):
             # 长度判断（范围设置为0.1，这里面的计算都是归一化之后的长度，都是一些小数值）
             # 改为设置为最大长度的0.9倍吧
             if tracks_length_list[i] >= 0.9 * max_length:
@@ -263,19 +274,23 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
                 if k not in track_dic:
                     track_dic[k] = [traj]
                     cls_track_dic[k] = [cls]
+                    id_track_dic[k] = [id]
                 # 如果该类别已存在,那么直接
                 else:
                     track_dic[k].append(traj)
                     cls_track_dic[k].append(cls)
+                    id_track_dic[k].append(id)
             else:
                 # 如果该类不在字典中,则需要新建一个列表
                 if k + 1 not in track_dic:
                     track_dic[k + 1] = [traj]
                     cls_track_dic[k + 1] = [cls]
+                    id_track_dic[k + 1] = [id]
                 # 如果该类别已存在,那么直接
                 else:
                     track_dic[k + 1].append(traj)
                     cls_track_dic[k + 1].append(cls)
+                    id_track_dic[k + 1].append(id)
             i += 1  # 用于获取长度的索引值
         k += 2  # 每个小类分了两类
 
@@ -289,10 +304,10 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     # 给不同类别一个代表性的曲线, 并计算数量, 数量作为粗细的依据
     # 基于轨迹检测长度最长的,作为代表性曲线
 
-    track_count = []
-    track_cls_dic = {}
+    track_count = []  #
+    track_cls_dic = {}  # 记录每个轨迹类别的各类车数量
     # todo:这里如果改成记录所有的info,就不能简单用这个count来计算类别数量，可能需要用for循环进行统计
-    # 遍历每一个类轨迹
+    # 遍历每一个类轨迹,计算每一个轨迹各类别车辆的数量
     for key in track_dic:
         bus = cls_track_dic[key].count(0)
         car = cls_track_dic[key].count(1)
@@ -300,7 +315,9 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         medium_truck = cls_track_dic[key].count(3)
         midget_truck = cls_track_dic[key].count(4)
         # bus:0,car:1,heavy_truck:2,medium_truck:3,midget_truck:4
+        # 记录每一个轨迹各类别车辆的数量
         track_cls_dic[key] = [bus, car, heavy_truck, medium_truck, midget_truck]
+        # 获取每条轨迹的车辆总数
         track_count.append(len(track_dic[key]))
 
     # ------------筛选掉不同类轨迹数量最少的轨迹(后期筛选,于执行算法后)------------
@@ -320,13 +337,16 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     for key in del_keys:
         del track_dic[key]
         del track_cls_dic[key]
+        del id_track_dic[key]
 
     # 重命名字典的key（每次删完轨迹重新让key从0按顺序开始的逻辑）
     tmp_dic = {}
     tmp_cls_dic = {}
+    tmp_id_dic = {}
     for i, key in enumerate(track_dic):
         tmp_dic[i] = track_dic[key]
         tmp_cls_dic[i] = track_cls_dic[key]
+        tmp_id_dic[i] = id_track_dic[key]
 
     # 根据轨迹的总数对字典顺序重新排序
     # 各轨迹总数与各轨迹总数百分比计算
@@ -339,12 +359,14 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     rank_key = np.argsort(-track_count_percentage)  # 排序index(大到小)
     track_count_percentage = np.flip(np.sort(track_count_percentage))  # 排序最终结果(大到小)
 
-    # 得到排序后的字典(最终确定，每次删完轨迹重新让key从0按顺序开始的逻辑，这里感觉略显多余，明明前面已经处理了一遍)
+    # 得到排序后的字典(最终确定，根据排序重新让key从0按顺序开始的逻辑)
     track_dic = {}
     track_cls_dic = {}
+    id_track_dic = {}
     for i, key in enumerate(rank_key):
         track_dic[i] = tmp_dic[key]
         track_cls_dic[i] = tmp_cls_dic[key]
+        id_track_dic[i] = tmp_id_dic[key]
 
     # 用处于中位数的线作为代表线(用于显示)
     track_representation = []
@@ -353,17 +375,17 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         tracks_length_list = []
         for new_traj in track_dic[key]:
             # 取每个类别中每个轨迹的长度
-            max_length = cal_trajectory_length(new_traj)
-            tracks_length_list.append(max_length)
+            each_length = cal_trajectory_length(new_traj)
+            tracks_length_list.append(each_length)
         # 基于轨迹长度排序,然后得到轨迹最长的index(相对于原类别顺序)
         tmp = sorted(tracks_length_list)  # 排序
-        middle_item = tmp[len(tracks_length_list) // 2]  # 排序后,取长度在中位数的
+        middle_item = tmp[len(tracks_length_list) // 2]  # 排序后,取长度在中位数的长度
         middle_index = tracks_length_list.index(middle_item)  # 通过数值得到对应的index
         track_representation.append(track_dic[key][middle_index])
 
     # print(track_representation)
     # print(track_count)
-    return track_dic, track_cls_dic, track_representation, track_count_percentage
+    return track_dic, track_cls_dic, id_track_dic, track_representation, track_count_percentage
 
 
 # 用cv2将聚类后的轨迹画在图上
@@ -377,9 +399,10 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     imGray = cv2.cvtColor(img_base, cv2.COLOR_BGR2GRAY)
     img_base = np.stack([imGray, imGray, imGray], axis=2)
     # 这里注意track_dic, track_representation结果是归一化的
-    track_dic, track_cls_dic, track_representation, track_count_percentage = cluster_tracks(txt_path, h, w,
-                                                                                            threshold=threshold,
-                                                                                            min_cars=min_cars)
+    track_dic, track_cls_dic, id_track_dic, track_representation, track_count_percentage = cluster_tracks(txt_path, h,
+                                                                                                          w,
+                                                                                                          threshold=threshold,
+                                                                                                          min_cars=min_cars)
     if len(track_representation) == 0:
         return 0
     # 将轨迹还原到原图的尺寸
@@ -445,6 +468,7 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     print(front_colors)
     return count_result, front_colors
 
+
 def visualize_tracks(track_dic):
     # QB算法结果可视化()以点的形式
     colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(track_dic))]
@@ -466,11 +490,12 @@ def visualize_tracks(track_dic):
     plt.gca().invert_yaxis()
     plt.show()
 
+
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = rf'example\5.txt'
+    txt_path = r'example\5.txt'
     # 底图图片
-    image_path = rf'example\5.jpg'
+    image_path = r'example\5.jpg'
     # 超参
     threshold = 0.125
     min_cars = 5
@@ -482,7 +507,7 @@ if __name__ == '__main__':
     h, w = img_base.shape[:2]
 
     # 1.matplotlib可视化测试（用于测试检查）
-    track_dic = cluster_tracks(txt_path, h, w)[0]
+    track_dic, track_cls_dic, id_track_dic = cluster_tracks(txt_path, h, w)[0:3]
     visualize_tracks(track_dic)
 
     # 2.cv2绘图测试（实际用于可视化绘图的）
