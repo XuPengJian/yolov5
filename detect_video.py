@@ -533,7 +533,7 @@ def main(args):
                         confidence=args.confidence, nms_iou=args.nms_iou, letterbox=args.letterbox)
 
     start = time.time()
-    print('------开始计算------')
+    # print('------开始计算------')
     capture = cv2.VideoCapture(args.video_path)  # 加载视频
     video_save_folder = os.path.join(args.save_path, 'video_output')  # 视频保存路径
     txt_save_folder = os.path.join(args.save_path, 'txt_output')  # 视频结果txt保存路径
@@ -578,9 +578,10 @@ def main(args):
             # 尝试生成轨迹
             try:
                 count_result, front_colors = draw_lines(tmp_frame, txt_save_path, threshold=0.125, min_cars=5)
-                with open(txt_save_path.split('.')[0] + '_result.txt', 'w') as f:
-                    f.write(f'{count_result}\n{front_colors}\n')
-                print("Camera capture over!")
+                # print(count_result, front_colors)
+                # with open(txt_save_path.split('.')[0] + '_result.txt', 'w') as f:
+                #     f.write(f'{count_result}\n{front_colors}\n')
+                # print("Camera capture over!")
                 break
             # 如果轨迹无法生成
             except Exception as e:
@@ -632,15 +633,15 @@ def main(args):
         #     capture.release()
         #     break
 
-    print("Video Detection Done!")
+    # print("Video Detection Done!")
     capture.release()
-    print("Save processed video to the path :" + video_save_path)
+    # print("Save processed video to the path :" + video_save_path)
     # out.release()
     out.close()
     cv2.destroyAllWindows()
     end = time.time()
-    print('------计算完成------')
-    print(f'计算总时长为: {end - start}s')
+    # print('------计算完成------')
+    # print(f'计算总时长为: {end - start}s')
 
 
 if __name__ == "__main__":

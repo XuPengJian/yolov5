@@ -386,8 +386,7 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     track_representation *= np.array([w, h])
     # 四舍五入并转化为像素点位置int类型
     track_representation = np.round(track_representation).astype(np.int32)
-    print('各轨迹各车辆类别数:', track_cls_dic)
-
+    # print('各轨迹各车辆类别数:', track_cls_dic)
     # 显示限制,只展示top8
     # track_representation = track_representation[:8]
     # track_count_percentage = track_count_percentage[:8]
@@ -442,8 +441,9 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
         # if key == 8:
         #     break
     count_result = [track_count] + track_cls_count
-    print('轨迹总数:', sum(track_count))
-
+    # print('轨迹总数:', sum(track_count))
+    print(count_result)
+    print(front_colors)
     return count_result, front_colors
 
 
@@ -496,7 +496,7 @@ if __name__ == '__main__':
 
     # 2.cv2绘图测试
     count_result = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
-    print('count_result:', count_result)
+    # print('count_result:', count_result)
 
 # # QB算法结果可视化
 # colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(clusters))]
