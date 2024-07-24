@@ -39,8 +39,8 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     min_length = 最短检测线长度过滤,作为过滤依据(归一化结果)
     """
     # 超参部分
-    min_points_count = 30  # 最少检测点的数量,作为过滤依据
-    min_length = 0.2  # 最短检测线长度过滤,作为过滤依据(归一化结果),尽可能要完整长度的
+    min_points_count = 60  # 最少检测点的数量,作为过滤依据
+    min_length = 0.3  # 最短检测线长度过滤,作为过滤依据(归一化结果),尽可能要完整长度的
 
     # 帧, id, x1, y1, x2, y2, conf, cls
     # 3,4,2052,996,2086,1061,0.881012,1
@@ -441,7 +441,6 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
         # if key == 8:
         #     break
     count_result = [track_count] + track_cls_count
-    # print('轨迹总数:', sum(track_count))
     print(count_result)
     print(front_colors)
     return count_result, front_colors
@@ -474,7 +473,7 @@ if __name__ == '__main__':
     image_path = rf'example\5.jpg'
     # 超参
     threshold = 0.125
-    min_cars = 7
+    min_cars = 5
 
     # 读取图片
     img_pil = Image.open(image_path)
@@ -487,8 +486,8 @@ if __name__ == '__main__':
     visualize_tracks(track_dic)
 
     # 2.cv2绘图测试（实际用于可视化绘图的）
-    count_result = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
-    # print('count_result:', count_result)
+    count_result, front_colors = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
+    print('轨迹总数:', sum(count_result[0]))
 
 # # QB算法结果可视化
 # colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(clusters))]
