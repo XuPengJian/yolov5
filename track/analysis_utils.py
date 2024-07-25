@@ -3,7 +3,7 @@
 2.车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间，前车车尾与后车车头之间的实际距离。
 3.排队长度指路口进口道各转向的排队长度；定义为从路口信号灯转为绿灯时刻，该路口进口道各转向车流排队最后一辆车距离路口停车线的距离。
 4.速度，车辆通过有信号灯控制路口时的行车速度。
-东E,南S,西W,北N,左L,直D,右R
+视频默认30fps，通过frame_id可以计算得到视频的时长
 """
 
 import math
@@ -46,6 +46,26 @@ def get_mask(h, w, mask_pt: list):
 
     # cv2.imwrite(image.split('.')[0] + '_result.jpg', img)
     return img
+
+# 计算车头时距
+# 车头时距的基本概念是指在同一车道上行驶的车辆队列中，前后两辆车的前端通过同一地点的时间差。
+def calculate_headway_times():
+    pass
+
+# 车头间距
+# 车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间，前车车尾与后车车头之间的实际距离。
+def calculate_headway_distances():
+    pass
+
+# 排队长度
+# 排队长度指路口进口道各转向的排队长度；定义为从路口信号灯转为绿灯时刻，该路口进口道各转向车流排队最后一辆车距离路口停车线的距离。
+def calculate_queue_length():
+    pass
+
+# 速度
+# 速度可以通过计算车辆在连续两帧之间的移动距离除以时间差来计算。
+def calculate_speed():
+    pass
 
 
 # ---------------第一组测试数据---------------
@@ -115,3 +135,17 @@ if len(scale_line) != 0 and scale_length:
     length_per_pixel = scale_length / distance
     print(length_per_pixel)
 
+# 读取result_txt的数据，进行后续处理
+with open(txt_path, 'r') as f:
+    lines = f.readlines()
+
+tracks = []
+# 遍历txt每一行数据
+for line in lines:
+    info_list = line.replace('\n', '').split(',')
+    # todo: 这里数量可能会继续变多
+    frame, id, x1, y1, x2, y2, conf, cls, track_cls = info_list
+    track = [int(frame), int(id), int(x1), int(y1), int(x2), int(y2), float(conf), int(cls), int(track_cls)]
+    tracks.append(track)
+
+print(tracks)
