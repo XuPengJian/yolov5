@@ -3,19 +3,15 @@
 2.车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间，前车车尾与后车车头之间的实际距离。
 3.排队长度指路口进口道各转向的排队长度；定义为从路口信号灯转为绿灯时刻，该路口进口道各转向车流排队最后一辆车距离路口停车线的距离。
 4.速度，车辆通过有信号灯控制路口时的行车速度。
-东E
-南S
-西W
-北N
-左L
-直D
-右R
+东E,南S,西W,北N,左L,直D,右R
 """
 
 import math
 import numpy as np
+import cv2
 
 
+# 计算两点之间的距离
 def calculate_distance(point1, point2):
     """
     计算两个像素点之间的欧几里得距离。
@@ -31,6 +27,25 @@ def calculate_distance(point1, point2):
     x2, y2 = point2
     distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     return distance
+
+
+# 通过多边形得到掩码矩阵
+def get_mask(h, w, mask_pt: list):
+    # 创建图像
+    img = np.zeros((h, w, 1), np.uint8)
+    # 遍历每一根多段线
+    for pl in mask_pt:
+        pl = np.array(pl)
+        pl[:, 0] = np.round(pl[:, 0] * w)  # x
+        pl[:, 1] = np.round(pl[:, 1] * h)  # y
+
+        # 绘制多边形
+        cv2.polylines(img, [np.array(pl, dtype=np.int32)], True, 1)
+        # 获取掩码
+        img = cv2.fillPoly(img, [np.array(pl, dtype=np.int32)], 1)
+
+    # cv2.imwrite(image.split('.')[0] + '_result.jpg', img)
+    return img
 
 
 # ---------------第一组测试数据---------------
@@ -94,10 +109,9 @@ stop_lines = [[[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.
 # ------------------------------------------
 # 去归一化，并转为numpy格式，方便计算
 scale_line = np.array(scale_line) * np.array((w, h))
-print(scale_line)
-# 以下是实现代码
 if len(scale_line) != 0 and scale_length:
     distance = calculate_distance(scale_line[0], scale_line[1])
     # 计算得到一个像素代表的实际真实长度（以m为单位）
     length_per_pixel = scale_length / distance
     print(length_per_pixel)
+
