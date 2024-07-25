@@ -516,9 +516,9 @@ def output_result_txt(txt_path, id_track_dic):
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = r'example\5.txt'
+    txt_path = r'example\1.txt'
     # 底图图片
-    image_path = r'example\5.jpg'
+    image_path = r'example\1.jpg'
     # 超参
     threshold = 0.125
     min_cars = 5
