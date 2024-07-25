@@ -493,7 +493,6 @@ def visualize_tracks(track_dic):
 
 # 生成过滤后，并拥有轨迹类别的txt文件
 def output_result_txt(txt_path, id_track_dic):
-
     new_lines = []
     with open(txt_path, 'r') as f:
         lines = f.readlines()
@@ -514,6 +513,31 @@ def output_result_txt(txt_path, id_track_dic):
             f.write(line + '\n')
 
 
+# 获取代表轨迹的，起点方向向量，后面需要作为车行驶方向的判断开始
+def get_track_representation_vector(track_representation):
+    track_representation_start_vector = []
+    track_representation_end_vector = []
+    # 可使用类别
+    # 东向西，南向北，西向东，北向南
+    # 左转，直行，右转
+    direction_cls = []  # 比如：['东向西左转','南向北右转','东向西右转'...]
+
+    for each_track in track_representation:
+        pt1 = 0.9 * each_track[0] + 0.1 * each_track[1]
+        pt2 = 0.9 * each_track[1] + 0.1 * each_track[2]
+        vector = pt2 - pt1
+        vector = normalize(vector)
+        track_representation_start_vector.append(vector)
+
+        pt1 = 0.9 * each_track[-2] + 0.1 * each_track[-3]
+        pt2 = 0.9 * each_track[-1] + 0.1 * each_track[-2]
+        vector = pt2 - pt1
+        vector = normalize(vector)
+        track_representation_end_vector.append(vector)
+
+    return track_representation_start_vector, track_representation_end_vector
+
+
 if __name__ == '__main__':
     # 读取的txt数据
     txt_path = r'example\1.txt'
@@ -530,8 +554,11 @@ if __name__ == '__main__':
     h, w = img_base.shape[:2]
 
     # 1.matplotlib可视化测试（用于测试检查）
-    track_dic, track_cls_dic, id_track_dic = cluster_tracks(txt_path, h, w)[0:3]
+    track_dic, track_cls_dic, id_track_dic, track_representation = cluster_tracks(txt_path, h, w)[0:4]
     visualize_tracks(track_dic)
+    start_vector, end_vector = get_track_representation_vector(track_representation)
+    # print(start_vector)
+    # print(end_vector)
     output_result_txt(txt_path, id_track_dic)
 
     # 2.cv2绘图测试（实际用于可视化绘图的）
