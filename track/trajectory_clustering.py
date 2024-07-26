@@ -518,7 +518,7 @@ def get_track_representation_vector(track_representation):
     track_representation_end_vector = []
     # 可使用类别
     # 东向西，北向南，西向东，南向北 东西——0, 2， 南北——1, -1
-    start_direc = ['东向西', '北向南', '西向东', '南向北']
+    start_direc = [['', '北向南', '南向北'], ['西向东', '西北向东南', '西南向东北'], ['东向西', '东北向西南', '东南向西北']]
     # 左转，直行，右转
     direction_cls = []  # 比如：['东向西直行','北向南直行','西向东直行',...]
 
@@ -536,13 +536,17 @@ def get_track_representation_vector(track_representation):
         endVector = normalize(endVector)
         track_representation_end_vector.append(endVector)
 
-        # 将起点向量转为0和1判断起点方向
-        vector = np.round(startVector)
-        # print(startVector, vector)
-        if vector[0] != 0:
-            direction = start_direc[int(vector[0]) + 1]
-        else:
-            direction = start_direc[int(vector[1])]
+        # 将起点向量转为整数判断起点方向
+        # 定义分类的阈值，如小于0.3给0大于0.3给1
+        thre = 0.3                              # --x   0         1         -1
+        vector = [                              # y
+            0 if abs(val) < thre else           # 0     /       西向东      东向西
+            1 if val > 0 else                   # 1   北向南   西北向东南   东北向西南
+            -1                                  # -1  南向北   西南向东北   东南向西北
+            for val in startVector              #
+        ]
+        print(startVector, vector)
+        direction = start_direc[vector[0]][vector[1]]
 
         # 通过起点向量与终点向量的正弦值与余弦值判断轨迹转向类型
         vector_sin = endVector[1] * startVector[0] - endVector[0] * startVector[1]
