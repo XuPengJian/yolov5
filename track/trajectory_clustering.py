@@ -553,20 +553,25 @@ def get_track_representation_vector(track_representation):
         vector_cos = sum(startVector * endVector)  # 余弦值
         round_sin = round(vector_sin)
         # 对正弦值：左转为-1，右转为1，直行或掉头为0
-        # 0
         if round_sin == 0:
             # 直行
             if round(vector_cos) == 1:
                 swerve = '直行'
             # 掉头
-            else:
+            elif round(vector_cos) == -1:
                 swerve = '掉头'
-        # 1
+            # 异常情况
+            else:
+                raise ValueError('未定义的cos值')
+        # 右转
         elif round_sin == 1:
             swerve = '右转'
-        # -1
-        else:
+        # 左转
+        elif round_sin == -1:
             swerve = '左转'
+        # 异常情况
+        else:
+            raise ValueError('未定义的sin值')
         direction_cls.append(direction + '-' + swerve)
     print(direction_cls)
 
