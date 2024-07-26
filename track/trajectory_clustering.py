@@ -160,7 +160,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     # 记录轨迹类型,作为初始化类型
     k = 0
     # 角度等分数量(必须为2的倍数哈,最好是6的倍数) 角度为360/angle
-    angle = 36
+    angle = 18
     # 遍历每一个类别
     for key, cls in enumerate(clusters):
         # 拿到同类别最长的一根线作为基准线
@@ -518,31 +518,48 @@ def get_track_representation_vector(track_representation):
     track_representation_start_vector = []
     track_representation_end_vector = []
     # 可使用类别
-    # 东向西，南向北，西向东，北向南
+    # 东向西，北向南，西向东，南向北 东西——0, 2， 南北——1, -1
+    start_direc = ['东向西', '北向南', '西向东', '南向北']
     # 左转，直行，右转
-    direction_cls = []  # 比如：['东向西左转','南向北右转','东向西右转'...]
+    swerve_direc = ['直行', '右转', '左转']
+    direction_cls = []  # 比如：['东向西直行','北向南直行','西向东直行',...]
 
     for each_track in track_representation:
+        # 获取起点向量与终点向量
         pt1 = 0.9 * each_track[0] + 0.1 * each_track[1]
         pt2 = 0.9 * each_track[1] + 0.1 * each_track[2]
-        vector = pt2 - pt1
-        vector = normalize(vector)
-        track_representation_start_vector.append(vector)
+        startVector = pt2 - pt1
+        startVector = normalize(startVector)
+        track_representation_start_vector.append(startVector)
 
         pt1 = 0.9 * each_track[-2] + 0.1 * each_track[-3]
         pt2 = 0.9 * each_track[-1] + 0.1 * each_track[-2]
-        vector = pt2 - pt1
-        vector = normalize(vector)
-        track_representation_end_vector.append(vector)
+        endVector = pt2 - pt1
+        endVector = normalize(endVector)
+        track_representation_end_vector.append(endVector)
 
-    return track_representation_start_vector, track_representation_end_vector
+        # 将起点向量转为0和1判断起点方向
+        vector = np.round(startVector)
+        if vector[0] != 0:
+            direction = start_direc[int(vector[0]) + 1]
+        else:
+            direction = start_direc[int(vector[1])]
+
+        # 通过起点向量与终点向量的正弦值判断轨迹转向类型
+        start_to_end = endVector[1] * startVector[0] - endVector[0] * startVector[1]
+        # 左转为-1，右转为1，直行为0，通过索引指向转向list中对应类型
+        swerve = swerve_direc[round(start_to_end)]
+        direction_cls.append(direction + '-' + swerve)
+    print(direction_cls)
+
+    return track_representation_start_vector, track_representation_end_vector, direction_cls
 
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = r'example\1.txt'
+    txt_path = r'example\5.txt'
     # 底图图片
-    image_path = r'example\1.jpg'
+    image_path = r'example\5.jpg'
     # 超参
     threshold = 0.125
     min_cars = 5
@@ -556,7 +573,7 @@ if __name__ == '__main__':
     # 1.matplotlib可视化测试（用于测试检查）
     track_dic, track_cls_dic, id_track_dic, track_representation = cluster_tracks(txt_path, h, w)[0:4]
     visualize_tracks(track_dic)
-    start_vector, end_vector = get_track_representation_vector(track_representation)
+    start_vector, end_vector, direction_cls = get_track_representation_vector(track_representation)
     # print(start_vector)
     # print(end_vector)
     output_result_txt(txt_path, id_track_dic)
