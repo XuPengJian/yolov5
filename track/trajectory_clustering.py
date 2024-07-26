@@ -545,9 +545,18 @@ def get_track_representation_vector(track_representation):
             direction = start_direc[int(vector[1])]
 
         # 通过起点向量与终点向量的正弦值判断轨迹转向类型
-        start_to_end = endVector[1] * startVector[0] - endVector[0] * startVector[1]
+        vector_sin = endVector[1] * startVector[0] - endVector[0] * startVector[1]
+        vector_cos = sum(startVector * endVector)  # 余弦值
+        round_sin = round(vector_sin)
         # 左转为-1，右转为1，直行为0，通过索引指向转向list中对应类型
-        swerve = swerve_direc[round(start_to_end)]
+        if round_sin == 0:
+            # 直行
+            if round(vector_cos) == 1:
+                swerve = swerve_direc[round_sin]
+            else:
+                swerve = swerve_direc[round(vector_cos)]
+        else:
+            swerve = swerve_direc[round_sin]
         direction_cls.append(direction + '-' + swerve)
     print(direction_cls)
 
@@ -556,9 +565,9 @@ def get_track_representation_vector(track_representation):
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = r'example\1.txt'
+    txt_path = r'example\2.txt'
     # 底图图片
-    image_path = r'example\1.jpg'
+    image_path = r'example\2.jpg'
     # 超参
     threshold = 0.125
     min_cars = 5
