@@ -59,7 +59,7 @@ def calculate_headway_times(tracks, length_per_pixel):
 
 
 # 车头间距
-# 车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间，”前车车尾“与”后车车头“之间的实际距离。
+# 车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间（进入出口道），”前车车头“与”后车车头“之间的实际距离。
 def calculate_headway_distances(tracks, length_per_pixel):
     # 需要知道前一辆车的位置在哪
     pass
