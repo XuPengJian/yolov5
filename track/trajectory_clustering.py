@@ -160,7 +160,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     # 记录轨迹类型,作为初始化类型
     k = 0
     # 角度等分数量(必须为2的倍数哈,最好是6的倍数) 角度为360/angle
-    angle = 18
+    angle = 36
     # 遍历每一个类别
     for key, cls in enumerate(clusters):
         # 拿到同类别最长的一根线作为基准线
@@ -306,7 +306,6 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
 
     track_count = []  #
     track_cls_dic = {}  # 记录每个轨迹类别的各类车数量
-    # todo:这里如果改成记录所有的info,就不能简单用这个count来计算类别数量，可能需要用for循环进行统计
     # 遍历每一个类轨迹,计算每一个轨迹各类别车辆的数量
     for key in track_dic:
         bus = cls_track_dic[key].count(0)
@@ -557,9 +556,9 @@ def get_track_representation_vector(track_representation):
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = r'example\5.txt'
+    txt_path = r'example\1.txt'
     # 底图图片
-    image_path = r'example\5.jpg'
+    image_path = r'example\1.jpg'
     # 超参
     threshold = 0.125
     min_cars = 5
