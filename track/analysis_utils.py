@@ -44,27 +44,33 @@ def get_mask(h, w, mask_pt: list):
         # 获取掩码
         img = cv2.fillPoly(img, [np.array(pl, dtype=np.int32)], 1)
 
-    # cv2.imwrite(image.split('.')[0] + '_result.jpg', img)
+    # cv2.imshow('Mask Image', img)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
     return img
+
 
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，前后两辆车的前端通过同一地点的时间差。
-def calculate_headway_times():
+def calculate_headway_times(tracks, length_per_pixel):
     pass
+
 
 # 车头间距
 # 车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间，前车车尾与后车车头之间的实际距离。
-def calculate_headway_distances():
+def calculate_headway_distances(tracks, length_per_pixel):
     pass
+
 
 # 排队长度
 # 排队长度指路口进口道各转向的排队长度；定义为从路口信号灯转为绿灯时刻，该路口进口道各转向车流排队最后一辆车距离路口停车线的距离。
-def calculate_queue_length():
+def calculate_queue_length(tracks, length_per_pixel):
     pass
+
 
 # 速度
 # 速度可以通过计算车辆在连续两帧之间的移动距离除以时间差来计算。
-def calculate_speed():
+def calculate_speed(tracks, length_per_pixel):
     pass
 
 
@@ -138,14 +144,18 @@ if len(scale_line) != 0 and scale_length:
 # 读取result_txt的数据，进行后续处理
 with open(txt_path, 'r') as f:
     lines = f.readlines()
-
+# 新建一个轨迹列表把这些数据储存起来
 tracks = []
 # 遍历txt每一行数据
 for line in lines:
     info_list = line.replace('\n', '').split(',')
     # todo: 这里数量可能会继续变多
+    # 获取属性里的每一个值
     frame, id, x1, y1, x2, y2, conf, cls, track_cls = info_list
+    # 修改内部参数的属性并赋值道track中
     track = [int(frame), int(id), int(x1), int(y1), int(x2), int(y2), float(conf), int(cls), int(track_cls)]
     tracks.append(track)
+
+get_mask(h, w, entrance_areas)
 
 print(tracks)
