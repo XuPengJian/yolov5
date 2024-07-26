@@ -545,7 +545,7 @@ def get_track_representation_vector(track_representation):
             -1                                  # -1  南向北   西南向东北   东南向西北
             for val in startVector              #
         ]
-        print(startVector, vector)
+        # print(startVector, vector)
         direction = start_direc[vector[0]][vector[1]]
 
         # 通过起点向量与终点向量的正弦值与余弦值判断轨迹转向类型
