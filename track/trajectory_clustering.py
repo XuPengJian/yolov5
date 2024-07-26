@@ -539,6 +539,7 @@ def get_track_representation_vector(track_representation):
 
         # 将起点向量转为0和1判断起点方向
         vector = np.round(startVector)
+        # print(startVector, vector)
         if vector[0] != 0:
             direction = start_direc[int(vector[0]) + 1]
         else:
@@ -547,14 +548,16 @@ def get_track_representation_vector(track_representation):
         # 通过起点向量与终点向量的正弦值判断轨迹转向类型
         vector_sin = endVector[1] * startVector[0] - endVector[0] * startVector[1]
         vector_cos = sum(startVector * endVector)  # 余弦值
+        print(vector_sin, vector_cos)
         round_sin = round(vector_sin)
         # 左转为-1，右转为1，直行为0，通过索引指向转向list中对应类型
         if round_sin == 0:
             # 直行
             if round(vector_cos) == 1:
                 swerve = swerve_direc[round_sin]
+            # 掉头
             else:
-                swerve = swerve_direc[round(vector_cos)]
+                swerve = '掉头'
         else:
             swerve = swerve_direc[round_sin]
         direction_cls.append(direction + '-' + swerve)
