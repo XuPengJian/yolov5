@@ -646,7 +646,7 @@ if __name__ == '__main__':
     # 2.cv2绘图测试（实际用于可视化绘图的）
     count_result, front_colors, info_list = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
     print('轨迹总数:', sum(count_result[0]))
-    print('info_list:', info_list)
+    print('info_list第一条数据展示：', info_list[0])
 
     # 3.用于后面四大算法直行的数据（打包成一个完整的函数get_result，跟下面的draw_lines一样，要不直接写在draw_lines里输出，并获得result--info_list）
     # start_vector_list, end_vector_list, direction_cls = get_track_representation_vector(track_representation)

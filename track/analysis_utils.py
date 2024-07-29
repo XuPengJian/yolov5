@@ -9,6 +9,8 @@
 import math
 import numpy as np
 import cv2
+from PIL import Image
+from track.trajectory_clustering import draw_lines
 
 
 # 计算两点之间的距离
@@ -81,10 +83,16 @@ def calculate_speed(tracks, length_per_pixel):
 
 
 # ---------------第一组测试数据---------------
-# 读取的result.txt数据
-txt_path = r'example\1_result.txt'
+# 读取的txt数据
+txt_path = r'example\1.txt'
+# 底图图片
+image_path = r'example\1.jpg'
+# 超参
+threshold = 0.125
+min_cars = 5
+
 # 画面尺寸
-w, h = (1920, 1080)
+# w, h = (1920, 1080)
 
 mask = []  # 车道区域
 scale_line = [[0.4934539794921875, 0.2621527777777778], [0.5608367919921875, 0.265625]]  # 比例尺线
@@ -154,10 +162,16 @@ intersection_area = [[[0.4436492919921875, 0.2647569444444444], [0.4573211669921
                       [0.4231414794921875, 0.3515625], [0.4075164794921875, 0.3116319444444444]]]
 
 # ---------------第二组测试数据---------------
-# 读取的result.txt数据
-txt_path = r'example\5_result.txt'
+# 读取的txt数据
+txt_path = r'example\5.txt'
+# 底图图片
+image_path = r'example\5.jpg'
+# 超参
+threshold = 0.125
+min_cars = 5
+
 # 画面尺寸
-w, h = (3810, 2160)
+# w, h = (3810, 2160)
 
 mask = []  # 车道区域
 scale_line = [[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]]  # 比例尺线
@@ -187,8 +201,41 @@ intersection_area = [[[0.4407196044921875, 0.2543402777777778], [0.3801727294921
                       [0.3752899169921875, 0.6935763888888888], [0.4280242919921875, 0.7960069444444444],
                       [0.6311492919921875, 0.8272569444444444], [0.6838836669921875, 0.7421875],
                       [0.6848602294921875, 0.3845486111111111], [0.6096649169921875, 0.2560763888888889]]]
-# ------------------------------------------
-# 去归一化，并转为numpy格式，方便计算
+
+# ==================================================================
+# ============================数据处理===============================
+# ==================================================================
+
+# # 读取result_txt的数据，进行后续处理
+# with open(txt_path, 'r') as f:
+#     lines = f.readlines()
+# # 新建一个轨迹列表把这些数据储存起来
+# tracks = []
+# 遍历txt每一行数据
+# for line in lines:
+#     info_list = line.replace('\n', '').split('/')
+#     # 获取属性里的每一个值
+#     frame, id, x1, y1, x2, y2, conf, cls, track_cls, start_vector, end_vector = info_list
+#     # 修改内部参数的属性并赋值道track中
+#     track_info_dict = {'frame': int(frame), 'id': int(id), 'x1': int(x1), 'y1': int(y1), 'x2': int(x2), 'y2': int(y2),
+#                        'conf': float(conf), 'cls': int(cls), 'track_cls': int(track_cls),
+#                        'start_vector': eval(start_vector), 'end_vector': eval(end_vector)}
+#     tracks.append(track_info_dict)
+# print(tracks)
+
+# 读取图片
+img_pil = Image.open(image_path)
+img_cv2 = np.array(img_pil)
+img_base = cv2.cvtColor(img_cv2, cv2.COLOR_RGB2BGR)
+# 宽高从这里拿
+h, w = img_base.shape[:2]
+
+# 执行绘图算法，并获取info_list
+count_result, front_colors, info_list = draw_lines(img_base, txt_path, threshold=0.125, min_cars=5)
+print('info_list第一条数据展示：', info_list[0])
+
+# -----------------------------------------------
+# Step1：去归一化，并转为numpy格式，方便计算，获取length_per_pixel
 scale_line = np.array(scale_line) * np.array((w, h))
 if len(scale_line) != 0 and scale_length:
     distance = calculate_distance(scale_line[0], scale_line[1])
@@ -196,22 +243,4 @@ if len(scale_line) != 0 and scale_length:
     length_per_pixel = scale_length / distance
     print(length_per_pixel)
 
-# 读取result_txt的数据，进行后续处理
-with open(txt_path, 'r') as f:
-    lines = f.readlines()
-# 新建一个轨迹列表把这些数据储存起来
-tracks = []
-# 遍历txt每一行数据
-for line in lines:
-    info_list = line.replace('\n', '').split('/')
-    # 获取属性里的每一个值
-    frame, id, x1, y1, x2, y2, conf, cls, track_cls, start_vector, end_vector = info_list
-    # 修改内部参数的属性并赋值道track中
-    track_info_dict = {'frame': int(frame), 'id': int(id), 'x1': int(x1), 'y1': int(y1), 'x2': int(x2), 'y2': int(y2),
-                       'conf': float(conf), 'cls': int(cls), 'track_cls': int(track_cls),
-                       'start_vector': eval(start_vector), 'end_vector': eval(end_vector)}
-    tracks.append(track_info_dict)
-
 get_mask(h, w, entrance_areas)
-
-print(tracks)
