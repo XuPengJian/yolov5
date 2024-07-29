@@ -538,13 +538,22 @@ def get_track_representation_vector(track_representation):
 
         # 将起点向量转为整数判断起点方向
         # 定义分类的阈值，如小于0.3给0大于0.3给1
-        thre = 0.3                              # --x   0         1         -1
-        vector = [                              # y
-            0 if abs(val) < thre else           # 0     /       西向东      东向西
-            1 if val > 0 else                   # 1   北向南   西北向东南   东北向西南
-            -1                                  # -1  南向北   西南向东北   东南向西北
-            for val in startVector              #
-        ]
+        # 角度按方向等分为八份
+        seg_num = 8
+        # 每一份对应的角度
+        theta = 2 * pi / seg_num
+        thre = math.cos(theta / 2 + theta)      # --x   0         1         -1
+        vector = []                             # y
+        for val in startVector:                 # 0     /       西向东      东向西
+            if abs(val) < thre:                 # 1   北向南   西北向东南   东北向西南
+                vector.append(0)                # -1  南向北   西南向东北   东南向西北
+            elif val > 0:                       #
+                vector.append(1)
+            elif val < 0:
+                vector.append(-1)
+            else:
+                raise ValueError('未定义的向量值')
+
         # print(startVector, vector)
         direction = start_direc[vector[0]][vector[1]]
 
@@ -580,9 +589,9 @@ def get_track_representation_vector(track_representation):
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = r'example\1.txt'
+    txt_path = r'example\2.txt'
     # 底图图片
-    image_path = r'example\1.jpg'
+    image_path = r'example\2.jpg'
     # 超参
     threshold = 0.125
     min_cars = 5
