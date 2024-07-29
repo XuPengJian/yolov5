@@ -542,15 +542,15 @@ def get_track_representation_vector(track_representation):
         seg_num = 8
         # 每一份对应的角度
         theta = 2 * pi / seg_num
-        thre = math.cos(1.5 * theta)      # --x   0         1         -1
-        vector = []                             # y
-        for val in startVector:                 # 0     /       西向东      东向西
-            if abs(val) < thre:                 # 1   北向南   西北向东南   东北向西南
-                vector.append(0)                # -1  南向北   西南向东北   东南向西北
-            elif val > 0:                       #
-                vector.append(1)
-            elif val < 0:
-                vector.append(-1)
+        thre = math.cos(1.5 * theta)
+        vector = []
+        for val in startVector:
+            if abs(val) < thre:
+                vector.append(0)                # --x   0         1         -1
+            elif val > 0:                       # y
+                vector.append(1)                # 0     /       西向东      东向西
+            elif val < 0:                       # 1   北向南   西北向东南   东北向西南
+                vector.append(-1)               # -1  南向北   西南向东北   东南向西北
             else:
                 raise ValueError('未定义的向量值')
 
