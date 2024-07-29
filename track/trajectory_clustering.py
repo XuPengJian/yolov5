@@ -402,6 +402,11 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
                                                                                                           w,
                                                                                                           threshold=threshold,
                                                                                                           min_cars=min_cars)
+
+    # 输出info_list，用于后续新功能算法的使用
+    start_vector_list, end_vector_list, direction_cls = get_track_representation_vector(track_representation)
+    info_list = output_info(txt_path, id_track_dic, start_vector_list, end_vector_list)
+
     if len(track_representation) == 0:
         return 0
     # 将轨迹还原到原图的尺寸
@@ -465,7 +470,7 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     count_result = [track_count] + track_cls_count
     print(count_result)
     print(front_colors)
-    return count_result, front_colors
+    return count_result, front_colors, info_list
 
 
 def visualize_tracks(track_dic):
@@ -497,8 +502,8 @@ def output_result_txt(txt_path, id_track_dic, start_vector_list, end_vector_list
         lines = f.readlines()
     # 遍历txt每一行数据
     for line in lines:
-        info_list = line.replace('\n', '').split(',')
-        frame, id, x1, y1, x2, y2, conf, cls = info_list[0:8]
+        info_data = line.replace('\n', '').split(',')
+        frame, id, x1, y1, x2, y2, conf, cls = info_data[0:8]
 
         # 新建一个列表用于存储过滤后的数据
         for key in id_track_dic:
@@ -511,6 +516,36 @@ def output_result_txt(txt_path, id_track_dic, start_vector_list, end_vector_list
         for sublist in new_lines:
             line = '/'.join(sublist)
             f.write(line + '\n')
+
+
+# 返回列表形式的info_list结果，这里不使用txt进行保存，里面存字典好了
+def output_info(txt_path, id_track_dic, start_vector_list, end_vector_list):
+    info_list = []
+    with open(txt_path, 'r') as f:
+        lines = f.readlines()
+    # 遍历txt每一行数据
+    for line in lines:
+        info_data = line.replace('\n', '').split(',')
+        frame, id, x1, y1, x2, y2, conf, cls = info_data[0:8]
+
+        # 新建一个列表用于存储过滤后的数据
+        for key in id_track_dic:
+            if id in id_track_dic[key]:
+                track_info_dict = {
+                    'frame': int(frame),
+                    'id': int(id),
+                    'x1': int(x1),
+                    'y1': int(y1),
+                    'x2': int(x2),
+                    'y2': int(y2),
+                    'conf': float(conf),
+                    'cls': int(cls),
+                    'track_cls': int(key),
+                    'start_vector': start_vector_list[int(key)],
+                    'end_vector': end_vector_list[int(key)]
+                }
+                info_list.append(track_info_dict)
+    return info_list
 
 
 # 获取代表轨迹的，起点方向向量，后面需要作为车行驶方向的判断开始
@@ -607,15 +642,19 @@ if __name__ == '__main__':
     # 1.matplotlib可视化测试（用于测试检查）
     track_dic, track_cls_dic, id_track_dic, track_representation = cluster_tracks(txt_path, h, w)[0:4]
     visualize_tracks(track_dic)
-    start_vector_list, end_vector_list, direction_cls = get_track_representation_vector(track_representation)
-    print(start_vector_list)
-    print(end_vector_list)
-    print(direction_cls)
-    output_result_txt(txt_path, id_track_dic, start_vector_list, end_vector_list)
 
     # 2.cv2绘图测试（实际用于可视化绘图的）
-    count_result, front_colors = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
+    count_result, front_colors, info_list = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
     print('轨迹总数:', sum(count_result[0]))
+    print('info_list:', info_list)
+
+    # 3.用于后面四大算法直行的数据（打包成一个完整的函数get_result，跟下面的draw_lines一样，要不直接写在draw_lines里输出，并获得result--info_list）
+    # start_vector_list, end_vector_list, direction_cls = get_track_representation_vector(track_representation)
+    # output_result_txt(txt_path, id_track_dic, start_vector_list, end_vector_list)
+    # info_list = output_info(txt_path, id_track_dic, start_vector_list, end_vector_list)
+    # print(start_vector_list)
+    # print(end_vector_list)
+    # print(direction_cls)
 
 # # QB算法结果可视化
 # colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(clusters))]
