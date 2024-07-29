@@ -404,8 +404,8 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
                                                                                                           min_cars=min_cars)
 
     # 输出info_list，用于后续新功能算法的使用
-    start_vector_list, end_vector_list, direction_cls = get_track_representation_vector(track_representation)
-    info_list = output_info(txt_path, id_track_dic, start_vector_list, end_vector_list)
+    start_vector_list, end_vector_list, direction_cls_list = get_track_representation_vector(track_representation)
+    info_list = output_info(txt_path, id_track_dic, start_vector_list, end_vector_list, direction_cls_list)
 
     if len(track_representation) == 0:
         return 0
@@ -519,7 +519,7 @@ def output_result_txt(txt_path, id_track_dic, start_vector_list, end_vector_list
 
 
 # 返回列表形式的info_list结果，这里不使用txt进行保存，里面存字典好了
-def output_info(txt_path, id_track_dic, start_vector_list, end_vector_list):
+def output_info(txt_path, id_track_dic, start_vector_list, end_vector_list, direction_cls_list):
     info_list = []
     with open(txt_path, 'r') as f:
         lines = f.readlines()
@@ -541,6 +541,7 @@ def output_info(txt_path, id_track_dic, start_vector_list, end_vector_list):
                     'conf': float(conf),
                     'cls': int(cls),
                     'track_cls': int(key),
+                    'direction_cls': direction_cls_list[int(key)],
                     'start_vector': start_vector_list[int(key)],
                     'end_vector': end_vector_list[int(key)]
                 }
@@ -557,7 +558,7 @@ def get_track_representation_vector(track_representation):
     start_direc = [['', '北向南', '南向北'], ['西向东', '西北向东南', '西南向东北'],
                    ['东向西', '东北向西南', '东南向西北']]
     # 左转，直行，右转
-    direction_cls = []  # 比如：['东向西直行','北向南直行','西向东直行',...]
+    direction_cls_list = []  # 比如：['东向西直行','北向南直行','西向东直行',...]
 
     for each_track in track_representation:
         # 获取起点向量与终点向量
@@ -618,10 +619,10 @@ def get_track_representation_vector(track_representation):
         # 异常情况
         else:
             raise ValueError('未定义的sin值')
-        direction_cls.append(direction + '-' + swerve)
+        direction_cls_list.append(direction + '-' + swerve)
     # print(direction_cls)
 
-    return track_representation_start_vector, track_representation_end_vector, direction_cls
+    return track_representation_start_vector, track_representation_end_vector, direction_cls_list
 
 
 if __name__ == '__main__':
