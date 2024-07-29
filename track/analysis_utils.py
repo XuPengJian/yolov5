@@ -54,14 +54,14 @@ def get_mask(h, w, mask_pt: list):
 
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
-def calculate_headway_times(tracks, length_per_pixel):
+def calculate_headway_times(info_list, length_per_pixel):
     # 需要知道前一辆车的位置在哪
     pass
 
 
 # 车头间距
 # 车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间（进入出口道），”前车车头“与”后车车头“之间的实际距离。
-def calculate_headway_distances(tracks, length_per_pixel):
+def calculate_headway_distances(info_list, length_per_pixel):
     # 需要知道前一辆车的位置在哪
     pass
 
@@ -69,7 +69,7 @@ def calculate_headway_distances(tracks, length_per_pixel):
 # 排队长度
 # 排队长度指路口进口道各转向的排队长度；定义为从路口信号灯转为绿灯时刻，该路口进口道各转向车流排队最后一辆车距离路口停止线的距离。
 # 直接算每根线的直线距离吧，然后选一根最短的
-def calculate_queue_length(tracks, length_per_pixel):
+def calculate_queue_length(info_list, length_per_pixel):
     # 需要判断车辆在什么情况处于排队状态
     # 需要知道停止线的位置
     pass
@@ -78,7 +78,7 @@ def calculate_queue_length(tracks, length_per_pixel):
 # 速度
 # 速度可以通过计算车辆在连续两帧之间的移动距离除以时间差来计算。
 # 计算路口围合区域的平均速度
-def calculate_speed(tracks, length_per_pixel):
+def calculate_speed(info_list, length_per_pixel):
     pass
 
 
