@@ -542,7 +542,7 @@ def get_track_representation_vector(track_representation):
         seg_num = 8
         # 每一份对应的角度
         theta = 2 * pi / seg_num
-        thre = math.cos(theta / 2 + theta)      # --x   0         1         -1
+        thre = math.cos(1.5 * theta)      # --x   0         1         -1
         vector = []                             # y
         for val in startVector:                 # 0     /       西向东      东向西
             if abs(val) < thre:                 # 1   北向南   西北向东南   东北向西南
