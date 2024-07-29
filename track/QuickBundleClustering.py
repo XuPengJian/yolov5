@@ -60,10 +60,8 @@ def resample_points(trajectory, num_points):
 
 def extend_lines(traj):
     # 得到延长起始点 pt1->pt2(延长的方向)
-    # pt1 = traj[1]
-    # pt2 = traj[0]
-    pt1 = 0.9 * traj[1] + 0.1 * traj[2]
-    pt2 = 0.9 * traj[0] + 0.1 * traj[1]
+    pt1 = traj[1]
+    pt2 = traj[0]
     pt3, pt4 = extend_line(pt1, pt2)
     base_vector = pt2 - pt1
     vector = pt3 - pt1
@@ -72,10 +70,8 @@ def extend_lines(traj):
     else:
         new_start_pt = pt4
     # 得到延长结束点 pt1->pt2(延长的方向)
-    # pt1 = traj[-2]
-    # pt2 = traj[-1]
-    pt1 = 0.9 * traj[-2] + 0.1 * traj[-3]
-    pt2 = 0.9 * traj[-1] + 0.1 * traj[-2]
+    pt1 = traj[-2]
+    pt2 = traj[-1]
     pt3, pt4 = extend_line(pt1, pt2)
     base_vector = pt2 - pt1
     vector = pt3 - pt1

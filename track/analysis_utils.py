@@ -203,13 +203,15 @@ with open(txt_path, 'r') as f:
 tracks = []
 # 遍历txt每一行数据
 for line in lines:
-    info_list = line.replace('\n', '').split(',')
+    info_list = line.replace('\n', '').split('/')
     # todo: 这里数量可能会继续变多
     # 获取属性里的每一个值
-    frame, id, x1, y1, x2, y2, conf, cls, track_cls = info_list
+    frame, id, x1, y1, x2, y2, conf, cls, track_cls, start_vector, end_vector = info_list
     # 修改内部参数的属性并赋值道track中
-    track = [int(frame), int(id), int(x1), int(y1), int(x2), int(y2), float(conf), int(cls), int(track_cls)]
-    tracks.append(track)
+    track_info_dict = {'frame': int(frame), 'id': int(id), 'x1': int(x1), 'y1': int(y1), 'x2': int(x2), 'y2': int(y2),
+                       'conf': float(conf), 'cls': int(cls), 'track_cls': int(track_cls),
+                       'start_vector': eval(start_vector), 'end_vector': eval(end_vector)}
+    tracks.append(track_info_dict)
 
 get_mask(h, w, entrance_areas)
 

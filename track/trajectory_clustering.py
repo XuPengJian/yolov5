@@ -491,7 +491,7 @@ def visualize_tracks(track_dic):
 
 
 # 生成过滤后，并拥有轨迹类别的txt文件
-def output_result_txt(txt_path, id_track_dic):
+def output_result_txt(txt_path, id_track_dic, start_vector_list, end_vector_list):
     new_lines = []
     with open(txt_path, 'r') as f:
         lines = f.readlines()
@@ -503,12 +503,13 @@ def output_result_txt(txt_path, id_track_dic):
         # 新建一个列表用于存储过滤后的数据
         for key in id_track_dic:
             if id in id_track_dic[key]:
-                new_lines.append([frame, id, x1, y1, x2, y2, conf, cls, str(key)])
+                new_lines.append([frame, id, x1, y1, x2, y2, conf, cls, str(key),
+                                  str(start_vector_list[int(key)]), str(end_vector_list[int(key)])])
 
     output_txt = txt_path.replace('.txt', '_result.txt')
     with open(output_txt, 'w') as f:
         for sublist in new_lines:
-            line = ','.join(sublist)
+            line = '/'.join(sublist)
             f.write(line + '\n')
 
 
@@ -518,23 +519,24 @@ def get_track_representation_vector(track_representation):
     track_representation_end_vector = []
     # 可使用类别
     # 东向西，北向南，西向东，南向北 东西——0, 2， 南北——1, -1
-    start_direc = [['', '北向南', '南向北'], ['西向东', '西北向东南', '西南向东北'], ['东向西', '东北向西南', '东南向西北']]
+    start_direc = [['', '北向南', '南向北'], ['西向东', '西北向东南', '西南向东北'],
+                   ['东向西', '东北向西南', '东南向西北']]
     # 左转，直行，右转
     direction_cls = []  # 比如：['东向西直行','北向南直行','西向东直行',...]
 
     for each_track in track_representation:
         # 获取起点向量与终点向量
-        pt1 = 0.9 * each_track[0] + 0.1 * each_track[1]
-        pt2 = 0.9 * each_track[1] + 0.1 * each_track[2]
+        pt1 = each_track[0]
+        pt2 = each_track[1]
         startVector = pt2 - pt1
         startVector = normalize(startVector)
-        track_representation_start_vector.append(startVector)
+        track_representation_start_vector.append(startVector.tolist())
 
-        pt1 = 0.9 * each_track[-2] + 0.1 * each_track[-3]
-        pt2 = 0.9 * each_track[-1] + 0.1 * each_track[-2]
+        pt1 = each_track[-2]
+        pt2 = each_track[-1]
         endVector = pt2 - pt1
         endVector = normalize(endVector)
-        track_representation_end_vector.append(endVector)
+        track_representation_end_vector.append(endVector.tolist())
 
         # 将起点向量转为整数判断起点方向
         # 定义分类的阈值，如小于0.3给0大于0.3给1
@@ -546,11 +548,11 @@ def get_track_representation_vector(track_representation):
         vector = []
         for val in startVector:
             if abs(val) < thre:
-                vector.append(0)                # --x   0         1         -1
-            elif val > 0:                       # y
-                vector.append(1)                # 0     /       西向东      东向西
-            elif val < 0:                       # 1   北向南   西北向东南   东北向西南
-                vector.append(-1)               # -1  南向北   西南向东北   东南向西北
+                vector.append(0)  # --x   0         1         -1
+            elif val > 0:  # y
+                vector.append(1)  # 0     /       西向东      东向西
+            elif val < 0:  # 1   北向南   西北向东南   东北向西南
+                vector.append(-1)  # -1  南向北   西南向东北   东南向西北
             else:
                 raise ValueError('未定义的向量值')
 
@@ -582,16 +584,16 @@ def get_track_representation_vector(track_representation):
         else:
             raise ValueError('未定义的sin值')
         direction_cls.append(direction + '-' + swerve)
-    print(direction_cls)
+    # print(direction_cls)
 
     return track_representation_start_vector, track_representation_end_vector, direction_cls
 
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = r'example\2.txt'
+    txt_path = r'example\1.txt'
     # 底图图片
-    image_path = r'example\2.jpg'
+    image_path = r'example\1.jpg'
     # 超参
     threshold = 0.125
     min_cars = 5
@@ -605,10 +607,11 @@ if __name__ == '__main__':
     # 1.matplotlib可视化测试（用于测试检查）
     track_dic, track_cls_dic, id_track_dic, track_representation = cluster_tracks(txt_path, h, w)[0:4]
     visualize_tracks(track_dic)
-    start_vector, end_vector, direction_cls = get_track_representation_vector(track_representation)
-    # print(start_vector)
-    # print(end_vector)
-    output_result_txt(txt_path, id_track_dic)
+    start_vector_list, end_vector_list, direction_cls = get_track_representation_vector(track_representation)
+    print(start_vector_list)
+    print(end_vector_list)
+    print(direction_cls)
+    output_result_txt(txt_path, id_track_dic, start_vector_list, end_vector_list)
 
     # 2.cv2绘图测试（实际用于可视化绘图的）
     count_result, front_colors = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
