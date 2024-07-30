@@ -11,6 +11,7 @@ import numpy as np
 import cv2
 from PIL import Image
 from track.trajectory_clustering import draw_lines
+from matplotlib.path import Path
 
 
 # 计算两点之间的距离
@@ -52,13 +53,11 @@ def get_mask(h, w, mask_pt: list):
     return img
 
 
-# 辅助函数：判断点是否在mask内
-def is_point_in_mask(point, mask):
-    # 实现点在多边形内的判断逻辑
-    x1, y1 = point
-    result = mask[y1, x1]
-    # print(result)
-    return result
+# 计算检测框的中点（作为车辆的位置）
+def calculate_midpoint(info_list):
+    x_center = (float(info_list['x1']) + float(info_list['x2'])) / 2
+    y_center = (float(info_list['y1']) + float(info_list['y2'])) / 2
+    return [int(x_center), int(y_center)]
 
 
 # 计算车头时距
@@ -85,76 +84,77 @@ def calculate_queue_length(info_list, length_per_pixel):
 
 
 # 速度
-# 速度可以通过计算车辆在连续两帧之间的移动距离除以时间差来计算。
+# 速度可以通过计算车辆在连续两帧之间的移动距离除以时间差来计算。（用起点终点）
 # 计算路口围合区域的平均速度
+def calculate_speed(info_list, length_per_pixel, mask):
+    # 默认帧率
+    fps = 30
+    # 初始化存储起点终点与速度的字典
+    start_dic = {}
+    end_dic = {}
+    distance_dic = {}
+    speed_dic = {}
+    average_dic = {}
 
-def calculate_speed_at_intersection(info_list, intersection_mask, length_per_pixel):
-    # 基于汽车id来分
-    car_dict = {}
-    # 基于轨迹分类来分
-    speed_dict = {}
-    # 先把所有处于路口区域的track_info，放入一个新列表中
-    for track_info in info_list:
-        center_x = int((track_info['x1'] + track_info['x2']) / 2)
-        center_y = int((track_info['y1'] + track_info['y2']) / 2)
-        if is_point_in_mask((center_x, center_y), intersection_mask):
-            # track_list.append(track_info)
-            # 基于轨迹类型对获取每个id的在路口区域的轨迹
-            if track_info['id'] not in car_dict:
-                car_dict[track_info['id']] = [track_info]
+    for info in info_list:
+        # 得到车辆所在位置对应的点
+        mid_point = calculate_midpoint(info)
+        # 先判断是否在十字路口围合区域内
+        if mask[mid_point[1]][mid_point[0]] == 1:
+            # 如果该id不在起点字典中，则为第一次出现，新建一个存储起点坐标
+            if info['id'] not in start_dic:
+                start_dic[info['id']] = [mid_point]
+                # 存储时间
+                start_dic[info['id']].append(info['frame'])
+                # 存储类别
+                start_dic[info['id']].append(info['track_cls'])
+            # 如果该id已存在起点字典中，则计算终点坐标与行驶距离
             else:
-                car_dict[track_info['id']].append(track_info)
+                # print('----------------------------')
+                # print(info['id'])
+                if info['id'] not in distance_dic:
+                    distance_dic[info['id']] = calculate_distance(start_dic[info['id']][0], mid_point)
+                else:
+                    # print(distance_dic[info['id']], calculate_distance(end_dic[info['id']][0], mid_point))
+                    distance_dic[info['id']] += calculate_distance(end_dic[info['id']][0], mid_point)
+                end_dic[info['id']] = [mid_point]
+                end_dic[info['id']].append(info['frame'])
+                # print(distance_dic[info['id']])
+    # print(start_dic)
+    # print(end_dic)
 
-    # 遍历每辆车，对每辆车计算平均速度
-    for each_id in car_dict:
-        total_distance = 0
-        track_list = car_dict[each_id]
-        for i in range(len(track_list) - 1):
-            start_x1 = track_list[i]['x1']
-            start_y1 = track_list[i]['y1']
-            start_x2 = track_list[i]['x2']
-            start_y2 = track_list[i]['y2']
-            end_x1 = track_list[i + 1]['x1']
-            end_y1 = track_list[i + 1]['y1']
-            end_x2 = track_list[i + 1]['x2']
-            end_y2 = track_list[i + 1]['y2']
-            start_center_x = (start_x1 + start_x2) / 2
-            start_center_y = (start_y1 + start_y2) / 2
-            end_center_x = (end_x1 + end_x2) / 2
-            end_center_y = (end_y1 + end_y2) / 2
-            distance = calculate_distance((start_center_x, start_center_y), (end_center_x, end_center_y))
-            total_distance += distance
-        start_frame = track_list[0]['frame']
-        end_frame = track_list[-1]['frame']
+    # 判断起点与终点的个数是否相同，不相同则把出意外的点删掉
+    if len(start_dic) != len(end_dic):
+        # print('起点终点长度不相等：', len(start_dic), len(end_dic))
+        del_list = []
+        for car_id in start_dic:
+            if car_id not in end_dic:
+                del_list.append(car_id)
+        for key in del_list:
+            del start_dic[key]
 
-        # 并转换为公里每小时
-        speed = (total_distance * length_per_pixel) / ((end_frame - start_frame) / 30) * 3.6
-
-        # 把计算出来的每个速度放到轨迹字典中
-        if track_list[0]['track_cls'] not in speed_dict:
-            speed_dict[track_list[0]['track_cls']] = [speed]
+    # 计算起点与终点的距离
+    for car_id in start_dic:
+        distance = distance_dic[car_id] * length_per_pixel
+        # 取帧数计算时间
+        time = (end_dic[car_id][1] - start_dic[car_id][1]) / fps
+        speed = distance / time * 3.6
+        # 如果类别信息是否已存储
+        if start_dic[car_id][2] not in speed_dic:
+            speed_dic[start_dic[car_id][2]] = [speed]
         else:
-            speed_dict[track_list[0]['track_cls']].append(speed)
-    track_speed_avg_list = []
-    # 排序轨迹
-    for i in range(len(speed_dict)):
-        speed_list = speed_dict[i]
-        avg_speed = sum(speed_list) / len(speed_list)
-        track_speed_avg_list.append(avg_speed)
-        # print(f'第{i}条轨迹的平均速度为：', avg_speed)
-    print(track_speed_avg_list)
-    # print(speed_list)
-    # avg_speed = sum(speed_list) / len(speed_list)
-    # print('avg:', avg_speed)
-    # 基于轨迹类型对获取每个id的在路口区域的轨迹
+            speed_dic[start_dic[car_id][2]].append(speed)
 
-    # if len(speed_list) > 1:
-    #     distance = calculate_distance((speed_list[0]['x1'], speed_list[0]['y1']),
-    #                                   (speed_list[-1]['x1'], speed_list[-1]['y1']))
-    #     time_diff = (speed_list[-1]['frame'] - speed_list[0]['frame']) / 30  # 30fps
-    #     speed = distance * length_per_pixel / time_diff
-    #     return speed
-    return track_speed_avg_list
+    for key, values in speed_dic.items():
+        # 计算每组数据的平均值
+        average_value = sum(values) / len(values)
+        # 将结果存储在新的字典中
+        average_dic[key] = average_value
+    # # 计算平均速度(m/s)
+    # average_speed = sum(speed_list) / len(speed_list)
+    print('average_speed', average_dic)
+
+    return average_dic
 
 
 # ---------------第一组测试数据---------------
@@ -308,16 +308,17 @@ h, w = img_base.shape[:2]
 # 执行绘图算法，并获取info_list
 count_result, front_colors, info_list = draw_lines(img_base, txt_path, threshold=0.125, min_cars=5)
 print('info_list第一条数据展示：', info_list[0])
+# print(info_list)
 
 # -----------------------------------------------
 # Step1：去归一化，并转为numpy格式，方便计算，获取length_per_pixel
 scale_line = np.array(scale_line) * np.array((w, h))
+print('scale_line', scale_line)
 if len(scale_line) != 0 and scale_length:
     distance = calculate_distance(scale_line[0], scale_line[1])
     # 计算得到一个像素代表的实际真实长度（以m为单位）
     length_per_pixel = scale_length / distance
     print(length_per_pixel)
 
-# get_mask(h, w, entrance_areas)
 intersection_mask = get_mask(h, w, intersection_area)
-calculate_speed_at_intersection(info_list, intersection_mask, length_per_pixel)
+speed = calculate_speed(info_list, length_per_pixel, intersection_mask)
