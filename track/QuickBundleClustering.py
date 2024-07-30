@@ -18,6 +18,7 @@ def normalize(vector):
     """
     x = vector[0]
     y = vector[1]
+    # todo:分母为0的情况欠考虑
     vector /= math.sqrt(x ** 2 + y ** 2)
     return vector
 
@@ -34,6 +35,42 @@ def cal_trajectory_length(traj):
     for i in range(len(traj) - 1):
         length += cal_distance(traj[i], traj[i + 1])
     return length
+
+
+def cal_unit_direction_vector(traj):
+    """
+    计算轨迹中每一段的单位方向向量
+    :param traj: 轨迹列表，包含一系列的点，每个点由(x, y)坐标组成
+    :return: 单位方向向量列表，每个向量由(x, y)组成
+    """
+    unit_vectors = []
+    for i in range(len(traj) - 1):
+        start_point = traj[i]
+        end_point = traj[i + 1]
+
+        # 计算方向向量
+        dx = end_point[0] - start_point[0]
+        dy = end_point[1] - start_point[1]
+
+        # 计算向量的长度
+        vector_length = (dx ** 2 + dy ** 2) ** 0.5
+        print(vector_length)
+
+        # 避免除以零的情况
+        # 这里可以修改成某个阈值（小于多少个比例范围认为是不动的千分之一？或1/500），用来判断车是否处于静止状态
+        if vector_length == 0:
+            unit_vectors.append('静止')
+            continue
+
+        # 计算单位向量
+        unit_vector = (dx / vector_length, dy / vector_length)
+
+        # 将单位向量添加到列表中
+        unit_vectors.append(unit_vector)
+
+    # 最后一位向量用最后的那个值
+    unit_vectors.append(unit_vectors[-1])
+    return unit_vectors
 
 
 def resample_points(trajectory, num_points):

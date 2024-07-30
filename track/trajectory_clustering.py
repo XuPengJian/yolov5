@@ -620,7 +620,7 @@ def get_track_representation_vector(track_representation):
         else:
             raise ValueError('未定义的sin值')
         direction_cls_list.append(direction + '-' + swerve)
-    # print(direction_cls)
+    print(direction_cls_list)
 
     return track_representation_start_vector, track_representation_end_vector, direction_cls_list
 
@@ -650,9 +650,9 @@ if __name__ == '__main__':
     print('info_list第一条数据展示：', info_list[0])
 
     # 3.用于后面四大算法直行的数据（打包成一个完整的函数get_result，跟下面的draw_lines一样，要不直接写在draw_lines里输出，并获得result--info_list）
-    # start_vector_list, end_vector_list, direction_cls = get_track_representation_vector(track_representation)
+    # start_vector_list, end_vector_list, direction_cls_list = get_track_representation_vector(track_representation)
     # output_result_txt(txt_path, id_track_dic, start_vector_list, end_vector_list)
-    # info_list = output_info(txt_path, id_track_dic, start_vector_list, end_vector_list)
+    # info_list = output_info(txt_path, id_track_dic, start_vector_list, end_vector_list, direction_cls_list)
     # print(start_vector_list)
     # print(end_vector_list)
     # print(direction_cls)
