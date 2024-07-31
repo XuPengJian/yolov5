@@ -60,11 +60,31 @@ def calculate_midpoint(info_list):
     return [int(x_center), int(y_center)]
 
 
+# 辅助函数：判断点是否在mask内
+def is_point_in_mask(point, mask):
+    # 实现点在多边形内的判断逻辑
+    x1, y1 = point
+    result = mask[y1, x1]
+    # print(result)
+    return result
+
+
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
-def calculate_headway_times(info_list, length_per_pixel):
+def calculate_headway_times(info_list, length_per_pixel, exit_mask):
     # 需要知道前一辆车的位置在哪
-    pass
+    # 基于汽车id来分
+    car_dict = {}
+    # 先把所有位于出口道的车辆信息，放入一个新列表中
+    for track_info in info_list:
+        center_x, center_y = calculate_midpoint(track_info)
+        if is_point_in_mask((center_x, center_y), exit_mask):
+            # 基于轨迹类型对获取每个id的在路口区域的轨迹
+            if track_info['id'] not in car_dict:
+                car_dict[track_info['id']] = [track_info]
+            else:
+                car_dict[track_info['id']].append(track_info)
+    return None
 
 
 # 车头间距
@@ -320,5 +340,8 @@ if len(scale_line) != 0 and scale_length:
     length_per_pixel = scale_length / distance
     print(length_per_pixel)
 
-intersection_mask = get_mask(h, w, intersection_area)
-speed = calculate_speed(info_list, length_per_pixel, intersection_mask)
+# intersection_mask = get_mask(h, w, intersection_area)
+# speed = calculate_speed(info_list, length_per_pixel, intersection_mask)
+# 出口道
+exit_mask = get_mask(h, w, exit_areas)
+calculate_headway_times(info_list, length_per_pixel, exit_mask)

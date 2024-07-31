@@ -61,6 +61,12 @@ def is_point_in_mask(point, mask):
     return result
 
 
+def calculate_midpoint(info_list):
+    x_center = (float(info_list['x1']) + float(info_list['x2'])) / 2
+    y_center = (float(info_list['y1']) + float(info_list['y2'])) / 2
+    return int(x_center), int(y_center)
+
+
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
 def calculate_headway_times(info_list, length_per_pixel):
@@ -95,8 +101,7 @@ def calculate_speed_at_intersection(info_list, intersection_mask, length_per_pix
     speed_dict = {}
     # 先把所有处于路口区域的track_info，放入一个新列表中
     for track_info in info_list:
-        center_x = int((track_info['x1'] + track_info['x2']) / 2)
-        center_y = int((track_info['y1'] + track_info['y2']) / 2)
+        center_x, center_y = calculate_midpoint(track_info)
         if is_point_in_mask((center_x, center_y), intersection_mask):
             # track_list.append(track_info)
             # 基于轨迹类型对获取每个id的在路口区域的轨迹
