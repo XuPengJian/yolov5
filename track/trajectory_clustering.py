@@ -10,7 +10,8 @@ import imageio.v2 as iio
 
 import matplotlib.pyplot as plt
 # from sklearn.cluster import DBSCAN
-from track.QuickBundleClustering import cal_trajectory_length, resample_points, normalize, extend_lines
+from track.QuickBundleClustering import cal_trajectory_length, resample_points, normalize, extend_lines, \
+    remove_duplicates
 from dipy.segment.clustering import QuickBundles
 from dipy.segment.featurespeed import MidpointFeature, VectorOfEndpointsFeature, CenterOfMassFeature
 from dipy.segment.metric import EuclideanMetric, CosineMetric
@@ -90,6 +91,13 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     # threshold = car_h * 4.0  # 框的尺寸与threshold的关系,超参
     # threshold = 0.125
     # print(len(trajectory))
+
+    # 先对轨迹中的接近重复的点进行去重（去重后再过滤）
+    for key in trajectory:
+        # 这里需要先对点进行去重
+        points_new = remove_duplicates(trajectory[key])
+        # 得到新的点,放入到适当位置
+        trajectory[key] = points_new
 
     # ------------先筛选点太少和长度太短的轨迹(前期筛选,于执行算法前)------------
     del_keys = []
@@ -555,8 +563,8 @@ def get_track_representation_vector(track_representation):
     track_representation_end_vector = []
     # 可使用类别
     # 东向西，北向南，西向东，南向北 东西——0, 2， 南北——1, -1
-    start_direc = [['', '北向南', '南向北'], ['西向东', '西北向东南', '西南向东北'],
-                   ['东向西', '东北向西南', '东南向西北']]
+    start_direction = [['', '北向南', '南向北'], ['西向东', '西北向东南', '西南向东北'],
+                       ['东向西', '东北向西南', '东南向西北']]
     # 左转，直行，右转
     direction_cls_list = []  # 比如：['东向西直行','北向南直行','西向东直行',...]
 
@@ -564,15 +572,15 @@ def get_track_representation_vector(track_representation):
         # 获取起点向量与终点向量
         pt1 = each_track[0]
         pt2 = each_track[1]
-        startVector = pt2 - pt1
-        startVector = normalize(startVector)
-        track_representation_start_vector.append(startVector.tolist())
+        start_vector = pt2 - pt1
+        start_vector = normalize(start_vector)
+        track_representation_start_vector.append(start_vector.tolist())
 
         pt1 = each_track[-2]
         pt2 = each_track[-1]
-        endVector = pt2 - pt1
-        endVector = normalize(endVector)
-        track_representation_end_vector.append(endVector.tolist())
+        end_vector = pt2 - pt1
+        end_vector = normalize(end_vector)
+        track_representation_end_vector.append(end_vector.tolist())
 
         # 将起点向量转为整数判断起点方向
         # 定义分类的阈值，如小于0.3给0大于0.3给1
@@ -580,24 +588,32 @@ def get_track_representation_vector(track_representation):
         seg_num = 8
         # 每一份对应的角度
         theta = 2 * pi / seg_num
-        thre = math.cos(1.5 * theta)
+        angle_threshold = math.cos(1.5 * theta)
         vector = []
-        for val in startVector:
-            if abs(val) < thre:
-                vector.append(0)    # --x   0         1         -1
-            elif val > 0:           # y
-                vector.append(1)    # 0     /       西向东      东向西
-            elif val < 0:           # 1   北向南   西北向东南   东北向西南
-                vector.append(-1)   # -1  南向北   西南向东北   东南向西北
+        """
+        # // x   0        1         -1
+        # y
+        # 0     /       西向东      东向西
+        # 1   北向南   西北向东南   东北向西南
+        # -1  南向北   西南向东北   东南向西北
+        """
+        # 遍历xy的值，满足条件则赋值给vector，第一位赋值由x来，第二位赋值从y来
+        for val in start_vector:
+            if abs(val) < angle_threshold:
+                vector.append(0)
+            elif val > 0:
+                vector.append(1)
+            elif val < 0:
+                vector.append(-1)
             else:
                 raise ValueError('未定义的向量值')
 
         # print(startVector, vector)
-        direction = start_direc[vector[0]][vector[1]]
+        direction = start_direction[vector[0]][vector[1]]
 
         # 通过起点向量与终点向量的正弦值与余弦值判断轨迹转向类型
-        vector_sin = endVector[1] * startVector[0] - endVector[0] * startVector[1]
-        vector_cos = sum(startVector * endVector)  # 余弦值
+        vector_sin = end_vector[1] * start_vector[0] - end_vector[0] * start_vector[1]
+        vector_cos = sum(start_vector * end_vector)  # 余弦值
         round_sin = round(vector_sin)
         # 对正弦值：左转为-1，右转为1，直行或掉头为0
         if round_sin == 0:
@@ -627,9 +643,9 @@ def get_track_representation_vector(track_representation):
 
 if __name__ == '__main__':
     # 读取的txt数据
-    txt_path = r'example\1.txt'
+    txt_path = r'example\2.txt'
     # 底图图片
-    image_path = r'example\1.jpg'
+    image_path = r'example\2.jpg'
     # 超参
     threshold = 0.125
     min_cars = 5

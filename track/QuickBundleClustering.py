@@ -73,6 +73,24 @@ def cal_unit_direction_vector(traj):
     return unit_vectors
 
 
+def remove_duplicates(points, x_tolerance=0.001, y_tolerance=0.0015):
+    """
+    去除接近重合的点。
+
+    :param points: 包含点坐标的列表，其中每个点是一个[x, y]形式的列表。
+    :param tolerance: 判断两个点是否重合的阈值。
+    :return: 去重后的点列表。
+    """
+    # 先把第一个点加入到列表中
+    new_points = [points[0]]
+    for i in range(len(points) - 1):
+        # 检查下一个点是否与上一个点接近重合
+        if abs(points[i][0] - points[i + 1][0]) > x_tolerance or abs(points[i][1] - points[i + 1][1]) > y_tolerance:
+            # 如果当前点不与任何已添加的点重合，则添加到结果中
+            new_points.append(points[i + 1])
+    return new_points
+
+
 def resample_points(trajectory, num_points):
     '''
     Args:
