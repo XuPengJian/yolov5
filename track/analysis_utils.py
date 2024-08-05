@@ -67,11 +67,162 @@ def calculate_midpoint(info_list):
     return int(x_center), int(y_center)
 
 
+# 通过多边形得到掩码矩阵与mask中点
+def get_each_mask(h, w, mask_pt: list):
+    img_list = []
+    # 遍历每一根多段线
+    for pl in mask_pt:
+        # 创建图像
+        img = np.zeros((h, w), np.uint8)
+        pl = np.array(pl)
+        pl[:, 0] = np.round(pl[:, 0] * w)  # x
+        pl[:, 1] = np.round(pl[:, 1] * h)  # y
+
+        # 绘制多边形
+        cv2.polylines(img, [np.array(pl, dtype=np.int32)], True, 1)
+        # 获取掩码
+        img = cv2.fillPoly(img, [np.array(pl, dtype=np.int32)], 1)
+        img_list.append(img)
+
+    # cv2.imshow('Mask Image', img)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    return img_list
+
+
+def reset_index(index, index_max):
+    """重置索引到0，如果索引达到最大值"""
+    return (index + 1) % index_max
+
+
+# 筛选清洗数据异常值——出现分错类别的轨迹
+def delete_cls(cars_dict, min_cars):
+    # 步骤1: 统计每个 track_cls 出现的次数
+    track_cls_count = {}
+    for entry in cars_dict.values():
+        track_cls = entry['track_cls']
+        if track_cls in track_cls_count:
+            track_cls_count[track_cls] += 1
+        else:
+            track_cls_count[track_cls] = 1
+    # 步骤2: 筛选出现次数小于5的 track_cls 值
+    track_cls_to_remove = [cls for cls, count in track_cls_count.items() if count < min_cars]
+    # 步骤3: 删除对应的数据
+    keys_to_remove = [key for key, value in cars_dict.items() if value['track_cls'] in track_cls_to_remove]
+    for key in keys_to_remove:
+        del cars_dict[key]
+    return cars_dict
+
+
+# 计算某一方向车头时距
+def calculate_headway_time(lanes_arrays):
+    # 默认帧率
+    fps = 30
+    sum_time = 0
+    # 计算总平均车头时距的分母，一般为车道数，特殊情况会进行删减，如有车道对应排到的车只有一辆不构成时间的计算
+    lanes_lens = len(lanes_arrays)
+    for each_lane in lanes_arrays:
+        # 若单车道对应的车只有一辆，则跳过计算
+        if len(each_lane) == 1:
+            lanes_lens -= 1
+            continue
+        # 计算单个车道的平均时距
+        each_time = (each_lane[-1] - each_lane[0]) / (len(each_lane) - 1) / fps
+        sum_time += each_time
+    # 计算车头时距总的平均值
+    # 假如车道数与车辆数相等，即刚好每条车道分到都只有一辆，无法计算，返回None
+    # TODO：右转车辆少且无右转专用道时，有可能会出现时距极大的情况如：[[1561, 15171], [6425], [14701], [14921]]
+    if lanes_lens == 0:
+        return None
+    else:
+        average_time = round(sum_time / lanes_lens, 2)
+        return average_time
+
+
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
-def calculate_headway_times(info_list, length_per_pixel):
+def calculate_headway_times(info_list, exit_mask, exit_lane_num, min_cars):
     # 需要知道前一辆车的位置在哪
-    pass
+    # 基于汽车id来分
+    car_list = []
+    # 存储车辆时距顺序输出:{0: xx, 1: xx, ...}
+    sequence_time_dic = {}
+    # 遍历每一个mask
+    for each_mask in exit_mask:
+        car_dict = {}
+        # 判断中心点是否位于mask区域内
+        for track_info in info_list:
+            center_x, center_y = calculate_midpoint(track_info)
+            if is_point_in_mask((center_x, center_y), each_mask):
+                # 基于轨迹类型对获取每个id的在路口区域的轨迹
+                if track_info['id'] not in car_dict:
+                    car_dict[track_info['id']] = track_info
+        car_list.append(car_dict)
+
+    # 遍历四个mask
+    for i, each_car in enumerate(car_list):
+        if len(each_car) != 0:
+            # 删掉分错类别的轨迹（按照筛选轨迹的最小数量来分）
+            each_car = delete_cls(each_car, min_cars)
+            # 存储所有类别，按照左转、直行、右转的顺序
+            all_cls = [[] for _ in range(3)]
+            # 索引值初始化
+            index = [0, 0, 0]
+            # 索引最大值（车道数量）
+            # 每个方向车道的最大可行驶的车道数
+            # 判断是否有右转专用道，若没有右转专用道（即表示右转的车道数为0），右转转入的车道数与左转与直行相同
+            if exit_lane_num[i][1] == 0:
+                passable_lanes_num_list = [exit_lane_num[i][0], exit_lane_num[i][0], exit_lane_num[i][0]]
+            else:
+                passable_lanes_num_list = [exit_lane_num[i][0], exit_lane_num[i][0], exit_lane_num[i][1]]
+            # 生成二维空数组的列表,通过出口道最大（这里相当于打算用一个小技巧，按顺序依次插入到每个列表中，是一种我们自己假设的理想情况）
+            lanes_arrays = [[[] for _ in range(passable_lanes_num_list[0])], [[] for _ in range(passable_lanes_num_list[1])],
+                            [[] for _ in range(passable_lanes_num_list[2])]]
+            # print('---------------------------------------------------------')
+            # 遍历每一辆车首次出现在出口道mask内的信息
+            for j, each_frame in enumerate(each_car.values()):
+                # print(car['track_cls'], car['direction_cls'])
+                # 将行驶到同一个mask的区域按照不同转向方向进行划分，因为它们不会同时出现。然后将每个方向第一帧记录下来
+                # 直行
+                if '直行' in each_frame['direction_cls']:
+                    lanes_arrays[1][index[1]].append(each_frame['frame'])
+                    # 将直行的轨迹类别track_cls加入到基于direction_cls创建的列表，这种主要是考虑到有多条轨迹的情况
+                    if each_frame['track_cls'] not in all_cls[1]:
+                        all_cls[1].append(each_frame['track_cls'])
+                    # 索引递增
+                    # 索引递增和重置--数值到passable_lanes_num，超过最大车道数时，重新回到0塞入对应的列表中
+                    index[1] = reset_index(index[1], passable_lanes_num_list[1])
+                elif '右转' in each_frame['direction_cls']:
+                    lanes_arrays[2][index[2]].append(each_frame['frame'])
+                    if each_frame['track_cls'] not in all_cls[2]:
+                        all_cls[2].append(each_frame['track_cls'])
+                    index[2] = reset_index(index[2], passable_lanes_num_list[2])
+                # 左转和掉头
+                else:
+                    lanes_arrays[0][index[0]].append(each_frame['frame'])
+                    if each_frame['track_cls'] not in all_cls[0]:
+                        all_cls[0].append(each_frame['track_cls'])
+                    index[0] = reset_index(index[0], passable_lanes_num_list[0])
+
+            # 计算车头时距
+            for k, cls_list in enumerate(all_cls):
+                # 先判断是否有数据
+                if len(cls_list) != 0:
+                    average_time = calculate_headway_time(lanes_arrays[k])
+                    print(average_time, cls_list)
+                    print(lanes_arrays[k])
+                    for cls in cls_list:
+                        if cls not in sequence_time_dic:
+                            sequence_time_dic[cls] = average_time
+    print(sequence_time_dic)
+
+    sequence_time_list = []
+    # 排序轨迹
+    for i in range(len(sequence_time_dic)):
+        sequence_time_list.append(sequence_time_dic[i])
+    print(sequence_time_list)
+
+    return sequence_time_list
 
 
 # 车头间距
@@ -343,5 +494,9 @@ if len(scale_line) != 0 and scale_length:
     print(length_per_pixel)
 
 # get_mask(h, w, entrance_areas)
-intersection_mask = get_mask(h, w, intersection_area)
-calculate_speed_at_intersection(info_list, intersection_mask, length_per_pixel)
+
+# intersection_mask = get_mask(h, w, intersection_area)
+# speed = calculate_speed_at_intersection(info_list, length_per_pixel, intersection_mask)
+# 出口道
+exit_mask = get_each_mask(h, w, exit_areas)
+headway_times = calculate_headway_times(info_list, exit_mask, exit_lane_num, min_cars)
