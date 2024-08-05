@@ -127,7 +127,7 @@ def is_point_in_mask(point, mask):
     # print(result)
     return result
 
-
+# todo:这里写index_max是没问题的
 def reset_index(index, index_max):
     """重置索引到0，如果索引达到最大值"""
     return (index + 1) % index_max
@@ -168,6 +168,7 @@ def calculate_headway_time(lanes_arrays):
 
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
+# todo:这里的lanes变量名应该改为exit_lane_num，不然不知道是什么概念
 def calculate_headway_times(info_list, length_per_pixel, exit_mask, lanes, min_cars):
     # 需要知道前一辆车的位置在哪
     # 基于汽车id来分
@@ -187,29 +188,41 @@ def calculate_headway_times(info_list, length_per_pixel, exit_mask, lanes, min_c
         car_list.append(car_dict)
 
     # 遍历四个mask
+    # todo:这里直接写each_car就行，里面存的应该是每辆车的id对应每一帧的数据，each_direct会让人误以为想要的是各个方向概念的车
     for i, each_direct_cars in enumerate(car_list):
         if len(each_direct_cars) != 0:
             # 删掉分错类别的轨迹（按照筛选轨迹的最小数量来分）
             each_direct_cars = delete_cls(each_direct_cars, min_cars)
             # 存储所有类别，按照直行、右转、左转的顺序
+            # todo:这里的顺序为什么不按照左转、直行、右转的顺序(跟前端一致，也方便记忆从左到右)
             all_cls = [[] for _ in range(3)]
             # 索引值初始化
             index = [0, 0, 0]
             # 索引最大值（车道数量）
+            # todo: 需要添加注释--每个方向车道的最大可行驶的车道数
+            # todo: 添加完注释会发现，这里对右转车道的最大可行驶车道数的判断有误，并不是直接取索引1
+            # todo: 在写法上，这里建议写成index_max_list，里面的每一个值才是index_max，在循环遍历的时候应该叫each_index_max
+            # todo: 在内容上，这里不建议写index_max，应该叫passable_lanes_num_list
             index_max = [lanes[i][0], lanes[i][1], lanes[i][0]]
+            # todo: 方向顺序修改后的话 index_max = [lanes[i][0], lanes[i][0], lanes[i][1]]
+            # todo: 补充注释--生成二维空数组的列表,通过出口道最大（这里相当于打算用一个小技巧，按顺序依次插入到每个列表中，是一种我们自己假设的理想情况）
             # 生成二维空数组的列表
             lanes_arrays = [[[] for _ in range(index_max[0])], [[] for _ in range(index_max[1])],
                             [[] for _ in range(index_max[2])]]
             # print('---------------------------------------------------------')
             # 遍历每一辆车首次出现在出口道mask内的信息
+            # todo:这里可以改成each_frame，主要是表达car id里的每一帧
             for j, car in enumerate(each_direct_cars.values()):
                 # print(car['track_cls'], car['direction_cls'])
+                # todo:补充注释--将行驶到同一个mask的区域按照不同转向方向进行划分，因为它们不会同时出现。然后将每个方向第一帧记录下来
                 # 直行
                 if '直行' in car['direction_cls']:
                     lanes_arrays[0][index[0]].append(car['frame'])
+                    # todo: 补充注释--将直行的轨迹类别track_cls加入到基于direction_cls创建的列表，这种主要是考虑到有多条轨迹的情况
                     if car['track_cls'] not in all_cls[0]:
                         all_cls[0].append(car['track_cls'])
                     # 索引递增
+                    # todo:索引递增和重置--数值到passable_lanes_num，回到0塞入对应的列表中
                     index[0] = reset_index(index[0], index_max[0])
                 elif '右转' in car['direction_cls']:
                     lanes_arrays[1][index[1]].append(car['frame'])
