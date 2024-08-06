@@ -176,6 +176,34 @@ def calculate_headway_time(lanes_arrays):
         return average_time
 
 
+# 计算单一一方向车头间距
+def calculate_headway_distance(lanes_arrays, length_per_pixel):
+    sum_distance = 0
+    lanes_lens = len(lanes_arrays)
+    for each_lane in lanes_arrays:
+        # 单个车道对应的车头间距
+        each_distance = 0
+        if len(each_lane) == 1:
+            lanes_lens -= 1
+            continue
+        # 计算单个车道的平均车头间距
+        for i in range(len(each_lane) - 1):
+            # 遍历单个车道的车辆数据并进行累加
+            each_distance += calculate_distance(each_lane[i], each_lane[i + 1]) * length_per_pixel
+            # print(calculate_distance(each_lane[i], each_lane[i + 1]) * length_per_pixel)
+        # 计算单个车道的平均值
+        each_distance = each_distance / (len(each_lane) - 1)
+        # 总间距的累加
+        sum_distance += each_distance
+    if lanes_lens == 0:
+        return None
+    else:
+        # 计算平均车头间距
+        sum_distance = sum_distance / lanes_lens
+        # print(sum_distance)
+        return sum_distance
+
+
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
 def calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars):
@@ -263,9 +291,78 @@ def calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_nu
 
 # 车头间距
 # 车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间（进入出口道），”前车车头“与”后车车头“之间的实际距离。
-def calculate_headway_distances(info_list, length_per_pixel):
+def calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars):
     # 需要知道前一辆车的位置在哪
-    pass
+    # 基于汽车id来分
+    car_list = []
+    # 存储平均车头间距顺序输出:{0: xx, 1: xx, ...}
+    sequence_distance_dic = {}
+    # 遍历每一个mask
+    for each_mask in exit_mask:
+        car_dict = {}
+        # 判断中心点是否位于mask区域内
+        for track_info in info_list:
+            center_x, center_y = calculate_midpoint(track_info)
+            if is_point_in_mask((center_x, center_y), each_mask):
+                # 基于轨迹类型对获取每个id的在路口区域的轨迹（取刚进入区域的第一帧）
+                if track_info['id'] not in car_dict:
+                    car_dict[track_info['id']] = track_info
+        car_list.append(car_dict)
+
+    # 遍历四个mask(逻辑与计算车头时距差不多)
+    for i, each_car in enumerate(car_list):
+        if len(each_car) != 0:
+            each_car = delete_cls(each_car, min_cars)
+            # 存储所有类别，按照左转、直行、右转的顺序
+            all_cls = [[] for _ in range(3)]
+            index = [0, 0, 0]
+            if exit_lane_num[i][1] == 0:
+                passable_lanes_num_list = [exit_lane_num[i][0], exit_lane_num[i][0], exit_lane_num[i][0]]
+            else:
+                passable_lanes_num_list = [exit_lane_num[i][0], exit_lane_num[i][0], exit_lane_num[i][1]]
+            lanes_arrays = [[[] for _ in range(passable_lanes_num_list[0])],
+                            [[] for _ in range(passable_lanes_num_list[1])],
+                            [[] for _ in range(passable_lanes_num_list[2])]]
+            for j, each_info in enumerate(each_car.values()):
+                # 计算该条车辆识别框的中点（作为计算距离的数据）
+                mid_point = calculate_midpoint(each_info)
+                if '直行' in each_info['direction_cls']:
+                    # 将车辆位置（用识别框中点表示）依次存入表示车道的列表
+                    lanes_arrays[1][index[1]].append(mid_point)
+                    if each_info['track_cls'] not in all_cls[1]:
+                        all_cls[1].append(each_info['track_cls'])
+                    # 索引递增和重置
+                    index[1] = reset_index(index[1], passable_lanes_num_list[1])
+                elif '右转' in each_info['direction_cls']:
+                    lanes_arrays[2][index[2]].append(mid_point)
+                    if each_info['track_cls'] not in all_cls[2]:
+                        all_cls[2].append(each_info['track_cls'])
+                    index[2] = reset_index(index[2], passable_lanes_num_list[2])
+                # 左转和掉头
+                else:
+                    lanes_arrays[0][index[0]].append(mid_point)
+                    if each_info['track_cls'] not in all_cls[0]:
+                        all_cls[0].append(each_info['track_cls'])
+                    index[0] = reset_index(index[0], passable_lanes_num_list[0])
+            # print(lanes_arrays)
+
+            # 计算车头间距：利用计算前后车中点的距离近似作为两车车头的距离
+            for k, cls_list in enumerate(all_cls):
+                # 先判断是否有数据
+                if len(cls_list) != 0:
+                    average_distance = calculate_headway_distance(lanes_arrays[k], length_per_pixel)
+                    for cls in cls_list:
+                        if cls not in sequence_distance_dic:
+                            sequence_distance_dic[cls] = average_distance
+    # print(sequence_distance_dic)
+
+    sequence_distance_list = []
+    # 排序轨迹
+    for i in range(len(sequence_distance_dic)):
+        sequence_distance_list.append(sequence_distance_dic[i])
+    print(sequence_distance_list)
+
+    return sequence_distance_list
 
 
 # 排队长度
@@ -523,5 +620,5 @@ if len(scale_line) != 0 and scale_length:
 # speed = calculate_speed_at_intersection(info_list, length_per_pixel, intersection_mask)
 # 出口道
 exit_mask = get_each_mask(h, w, exit_areas)
-get_exit_direct(h, w, exit_areas)
-headway_times = calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
+# headway_times = calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
+headway_distances = calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
