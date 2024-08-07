@@ -76,6 +76,13 @@ def get_each_mask(h, w, mask_pt: list):
     return img_list
 
 
+# 停止线数据去归一化
+def unormalize_line(h, w, stop_line):
+    new_line = [[[int(x * w), int(y * h)] for x, y in line] for line in stop_line]
+    print(new_line)
+    return new_line
+
+
 # 返回出口道mask对应的方向类型
 def get_exit_direct(h, w, mask_pt: list):
     # 八个区域对应的方向信息
@@ -202,6 +209,27 @@ def calculate_headway_distance(lanes_arrays, length_per_pixel):
         sum_distance = sum_distance / lanes_lens
         # print(sum_distance)
         return sum_distance
+
+
+# 计算点到线段的距离
+def calculate_pt_to_segment(pt, segment):
+    # 先转为np格式
+    pt = np.array(pt)
+    segment_A = np.array(segment[0])
+    segment_B = np.array(segment[1])
+
+    # 步骤1：计算线段向量，线段一端点到点的向量
+    AP = pt - segment_A
+    AB = segment_B - segment_A
+
+    # 步骤2：计算向量AP在AB方向上的投影向量
+    proj = np.dot(AP, AB) * AB / np.dot(AB, AB)
+    # 步骤3：计算投影点P'
+    p_proj = segment_A + proj
+    # 步骤4：计算点P到投影点P'的距离（即点到线段的距离）
+    pt_distance = calculate_distance(pt, p_proj)
+
+    return pt_distance
 
 
 # 计算车头时距
@@ -368,9 +396,30 @@ def calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lan
 # 排队长度
 # 排队长度指路口进口道各转向的排队长度；定义为从路口信号灯转为绿灯时刻，该路口进口道各转向车流排队最后一辆车距离路口停止线的距离。
 # 直接算每根线的直线距离吧，然后选一根最短的
-def calculate_queue_length(info_list, length_per_pixel):
-    # 需要判断车辆在什么情况处于排队状态
-    # 需要知道停止线的位置
+def calculate_queue_length(info_list, length_per_pixel, entrance_mask, stop_segments):
+    # TODO:需要判断车辆在什么情况处于排队状态
+    # TODO:需要知道停止线的位置
+    # 先将车辆分到四个区域（进口道mask）
+    car_list = []
+    # 遍历每一个mask
+    for each_mask in entrance_mask:
+        car_dict = {}
+        # 判断中心点是否位于mask区域内
+        for track_info in info_list:
+            center_x, center_y = calculate_midpoint(track_info)
+            if is_point_in_mask((center_x, center_y), each_mask):
+                # 保存进口道区域的车辆信息
+                if track_info['id'] not in car_dict:
+                    car_dict[track_info['id']] = [track_info]
+                else:
+                    car_dict[track_info['id']].append(track_info)
+        car_list.append(car_dict)
+
+    # 判断不同进口道mask所对应的停止线，并用一个list按照mask的相同顺序存储
+    # 判断停止线数量并对应做不同的处理：停止线大于四条说明有右转专用道
+    # 用点到线的距离判断对应停止线是哪条
+    # 有右转专用道时，右转与直行对应的停止线距离可能差不多，无法单纯用距离判断，取距离最短的两条根据轨迹类型分，较长的为直行对应停止线
+    # 无右转专用道时，直接取距离最短的线作为停止线
     pass
 
 
@@ -508,15 +557,14 @@ exit_areas = [[[0.4436492919921875, 0.2630208333333333], [0.4592742919921875, 0.
                [0.4582977294921875, 0.8255208333333334], [0.4397430419921875, 0.7786458333333334],
                [0.4163055419921875, 0.7387152777777778]]]
 exit_lane_num = [[4, 1], [2, 1], [4, 1], [2, 1]]
-stop_lines = [
-    [[0.4456024169921875, 0.2690972222222222], [0.4582977294921875, 0.296875],
-     [0.4934539794921875, 0.2638888888888889], [0.5579071044921875, 0.2621527777777778]],
-    [[0.6731414794921875, 0.3333333333333333], [0.6575164794921875, 0.359375],
-     [0.6448211669921875, 0.3975694444444444], [0.6526336669921875, 0.5190972222222222]],
-    [[0.6243133544921875, 0.8315972222222222], [0.6086883544921875, 0.8020833333333334],
-     [0.5139617919921875, 0.7986111111111112]],
-    [[0.3791961669921875, 0.75], [0.3977508544921875, 0.7239583333333334],
-     [0.4133758544921875, 0.6944444444444444], [0.4094696044921875, 0.5434027777777778]]]  # 停止线位置
+stop_lines = [[[0.4431610107421875, 0.2682291666666667], [0.4578094482421875, 0.2960069444444444]],
+              [[0.4929656982421875, 0.2630208333333333], [0.5603485107421875, 0.2630208333333333]],
+              [[0.6736297607421875, 0.3359375], [0.6589813232421875, 0.3602430555555556]],
+              [[0.6462860107421875, 0.3949652777777778], [0.6501922607421875, 0.5234375]],
+              [[0.6257781982421875, 0.8307291666666666], [0.6082000732421875, 0.8012152777777778]],
+              [[0.5876922607421875, 0.8046875], [0.5134735107421875, 0.8012152777777778]],
+              [[0.3992156982421875, 0.7248263888888888], [0.3845672607421875, 0.7526041666666666]],
+              [[0.4138641357421875, 0.6901041666666666], [0.4109344482421875, 0.5442708333333334]]]  # 停止线位置
 intersection_area = [[[0.4436492919921875, 0.2647569444444444], [0.4573211669921875, 0.2960069444444444],
                       [0.4895477294921875, 0.2682291666666667], [0.5959930419921875, 0.2612847222222222],
                       [0.6155242919921875, 0.2994791666666667], [0.6370086669921875, 0.2751736111111111],
@@ -618,7 +666,10 @@ if len(scale_line) != 0 and scale_length:
 
 # intersection_mask = get_mask(h, w, intersection_area)
 # speed = calculate_speed_at_intersection(info_list, length_per_pixel, intersection_mask)
-# 出口道
-exit_mask = get_each_mask(h, w, exit_areas)
+# # 出口道
+# exit_mask = get_each_mask(h, w, exit_areas)
 # headway_times = calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
-headway_distances = calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
+# headway_distances = calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
+entrance_mask = get_each_mask(h, w, entrance_areas)
+stop_segments = unormalize_line(h, w, stop_lines)
+calculate_queue_length(info_list, length_per_pixel, entrance_mask, stop_segments)
