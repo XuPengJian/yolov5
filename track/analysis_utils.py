@@ -130,20 +130,20 @@ def delete_cls(cars_dict, min_cars):
 
 # 计算单一一方向车头间距
 def calculate_headway_distance(car_list, lanes_arrays, length_per_pixel):
+    # print('----------------------------each track----------------------------')
     sum_distance = 0
     lanes_lens = len(lanes_arrays)
     for each_lane in lanes_arrays:
         # 单个车道对应的车头间距
         each_distance = 0
-        if len(each_lane) <= 1:
+        # 当前单个车道的车数量
+        lane_lens = len(each_lane)
+        if lane_lens <= 1:
             lanes_lens -= 1
             continue
         # 计算单个车道的平均车头间距
         # 通过遍历依次获取单个车道中的车辆id
-        # print('----------------------------------------------------------')
-        # print(len(each_lane) - 1)
         for i in range(len(each_lane) - 1):
-            # print(i)
             # 获取前车与后车对应id
             last_id = each_lane[i]
             next_id = each_lane[i + 1]
@@ -152,48 +152,41 @@ def calculate_headway_distance(car_list, lanes_arrays, length_per_pixel):
             # 最后几辆车有可能出现个数较小的情况，若次数过小则按照数据个数作为检索次数
             count_num = len(car_list[next_id]) if len(car_list[next_id]) < max_num else max_num
             is_match = False
-            # 前车匹配位置对应的数据
-            last_data = {}
-            # TODO：检索前先做异常值的判断和处理，当后车第一帧比前车最后一帧还要大时是找不到的，看是删掉还是给一个默认的最大值
+            # 检索前先做异常值的判断和处理，当后车第一帧比前车最后一帧还要大时是找不到的，将前车删掉并总车辆数减一
             if car_list[next_id][0]['frame'] > car_list[last_id][-1]['frame']:
-                print('no match')
+                lane_lens -= 1
             else:
                 for j in range(count_num):
-                    # print('--------------------------------------------------------')
-                    # print(car_list[last_id])
                     # 获取后车进入出口道的第一帧
                     next_frame = car_list[next_id][j]['frame']
-                    # print(next_frame)
-                    print('--------------------------------------------------------')
                     # 找到前车在该时间所对应的数据
-                    print(next_frame)
                     for item in car_list[last_id]:
                         if item['frame'] == next_frame:
-                            print(item['frame'])
-                            # is_match = True
+                            is_match = True
                             last_data = item
                             # 计算前车与后车的中点
-                            # last_pt = calculate_midpoint(last_data)
-                            # next_pt = calculate_midpoint(car_list[next_id][j])
-                            # print(j)
+                            last_pt = calculate_midpoint(last_data)
+                            next_pt = calculate_midpoint(car_list[next_id][j])
+                            # 遍历计算单个车道的车辆数据并进行累加
+                            each_distance += calculate_distance(last_pt, next_pt) * length_per_pixel
                             break  # 找到后即可退出循环
                     # 检查匹配变量，为true则跳出外层循环
                     if is_match:
                         break
-        #     # 遍历计算单个车道的车辆数据并进行累加
-        #     each_distance += calculate_distance(each_lane[i], each_lane[i + 1]) * length_per_pixel
-        #     # print(calculate_distance(each_lane[i], each_lane[i + 1]) * length_per_pixel)
-        # # 计算单个车道的平均值
-        # each_distance = each_distance / (len(each_lane) - 1)
-        # # 总间距的累加
-        # sum_distance += each_distance
-    # if lanes_lens == 0:
-    #     return None
-    # else:
-    #     # 计算平均车头间距
-    #     sum_distance = sum_distance / lanes_lens
-    #     # print(sum_distance)
-    #     return sum_distance
+        if lane_lens <= 1:
+            lanes_lens -= 1
+            continue
+        # 计算单个车道的平均值
+        each_distance = each_distance / (lane_lens - 1)
+        # 总间距的累加
+        sum_distance += each_distance
+
+    if lanes_lens == 0:
+        return None
+    else:
+        # 计算平均车头间距
+        sum_distance = sum_distance / lanes_lens
+        return sum_distance
 
 
 # 计算某一方向车头时距
@@ -391,20 +384,19 @@ def calculate_headway_distances(info_list, length_per_pixel, exit_mask, entrance
             for k, cls_list in enumerate(all_cls):
                 # 先判断是否有数据
                 if len(cls_list) != 0:
-                    # print(lanes_arrays[k])
-                    calculate_headway_distance(car_list[i], lanes_arrays[k], length_per_pixel)
-    #                 for cls in cls_list:
-    #                     if cls not in sequence_distance_dic:
-    #                         sequence_distance_dic[cls] = average_distance
-    # print(sequence_distance_dic)
-    #
-    # sequence_distance_list = []
-    # # 排序轨迹
-    # for i in range(len(sequence_distance_dic)):
-    #     sequence_distance_list.append(sequence_distance_dic[i])
-    # print(sequence_distance_list)
-    #
-    # return sequence_distance_list
+                    average_distance = calculate_headway_distance(car_list[i], lanes_arrays[k], length_per_pixel)
+                    for cls in cls_list:
+                        if cls not in sequence_distance_dic:
+                            sequence_distance_dic[cls] = average_distance
+    print(sequence_distance_dic)
+
+    sequence_distance_list = []
+    # 排序轨迹
+    for i in range(len(sequence_distance_dic)):
+        sequence_distance_list.append(sequence_distance_dic[i])
+    print(sequence_distance_list)
+
+    return sequence_distance_list
 
 
 # 排队长度
@@ -659,5 +651,5 @@ if len(scale_line) != 0 and scale_length:
 # speed = calculate_speed_at_intersection(info_list, length_per_pixel, intersection_mask)
 # # 出口道
 exit_mask = get_each_mask(h, w, exit_areas)
-headway_times = calculate_headway_times(info_list, exit_mask, entrance_lane_num, min_cars)
-# calculate_headway_distances(info_list, length_per_pixel, exit_mask, entrance_lane_num, min_cars)
+# headway_times = calculate_headway_times(info_list, exit_mask, entrance_lane_num, min_cars)
+calculate_headway_distances(info_list, length_per_pixel, exit_mask, entrance_lane_num, min_cars)
