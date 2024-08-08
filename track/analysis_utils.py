@@ -93,19 +93,19 @@ def get_each_mask(h, w, mask_pt: list):
 def reset_index(index, index_max, share_num, is_add):
     """重置索引到0，如果索引达到最大值"""
     # 不存在车道共用时，采用原逻辑
-    if share_num == 0:
-        new_index = (index + 1) % index_max
-    # 存在车道共用时，考虑返回共用车道的索引还是跳过（默认为后面的车道，如有一个共用车道，则是最后一个，也就是[index_max - 1]对应的索引）
-    elif share_num != 0:
-        # 考虑返回共用车道对应索引时，最大值不变仍为index_max，但若加到最大值时切换到不考虑共用车道模式，is_add取反
-        if is_add:
-            new_index = (index + 1) % index_max
-        # 当不返回共用车道对应索引时，最大值为总车道数量减去共享车道数量，同样加到最大值时切换到考虑共用车道模式，is_add取反
-        else:
-            new_index = (index + 1) % (index_max - share_num)
-        # 也就是进入到新的一轮计算时is_add取反，此时new_index为0
-        if new_index == 0:
-            is_add = not is_add
+    # if share_num == 0:
+    new_index = (index + 1) % index_max
+    # # 存在车道共用时，考虑返回共用车道的索引还是跳过（默认为后面的车道，如有一个共用车道，则是最后一个，也就是[index_max - 1]对应的索引）
+    # elif share_num != 0:
+    #     # 考虑返回共用车道对应索引时，最大值不变仍为index_max，但若加到最大值时切换到不考虑共用车道模式，is_add取反
+    #     if is_add:
+    #         new_index = (index + 1) % index_max
+    #     # 当不返回共用车道对应索引时，最大值为总车道数量减去共享车道数量，同样加到最大值时切换到考虑共用车道模式，is_add取反
+    #     else:
+    #         new_index = (index + 1) % (index_max - share_num)
+    #     # 也就是进入到新的一轮计算时is_add取反，此时new_index为0
+    #     if new_index == 0:
+    #         is_add = not is_add
     return new_index, is_add
 
 
@@ -133,6 +133,7 @@ def calculate_headway_distance(car_list, lanes_arrays, length_per_pixel):
     # print('----------------------------each track----------------------------')
     sum_distance = 0
     lanes_lens = len(lanes_arrays)
+    # print(lanes_arrays)
     for each_lane in lanes_arrays:
         # 单个车道对应的车头间距
         each_distance = 0
@@ -167,6 +168,7 @@ def calculate_headway_distance(car_list, lanes_arrays, length_per_pixel):
                             # 计算前车与后车的中点
                             last_pt = calculate_midpoint(last_data)
                             next_pt = calculate_midpoint(car_list[next_id][j])
+                            # print(last_pt, next_pt, calculate_distance(last_pt, next_pt) * length_per_pixel)
                             # 遍历计算单个车道的车辆数据并进行累加
                             each_distance += calculate_distance(last_pt, next_pt) * length_per_pixel
                             break  # 找到后即可退出循环
@@ -178,14 +180,17 @@ def calculate_headway_distance(car_list, lanes_arrays, length_per_pixel):
             continue
         # 计算单个车道的平均值
         each_distance = each_distance / (lane_lens - 1)
+        # print(each_distance)
         # 总间距的累加
         sum_distance += each_distance
+        # print(sum_distance)
 
     if lanes_lens == 0:
         return None
     else:
         # 计算平均车头间距
         sum_distance = sum_distance / lanes_lens
+        # print(sum_distance, lanes_lens)
         return sum_distance
 
 
@@ -313,7 +318,9 @@ def calculate_headway_times(info_list, exit_mask, entrance_lane_num, min_cars):
 
 # 车头间距
 # 车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间（进入出口道），”前车车头“与”后车车头“之间的实际距离。
-def calculate_headway_distances(info_list, length_per_pixel, exit_mask, entrance_lane_num, min_cars):
+def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w, exit_areas):
+    # 获取出口道的mask
+    exit_mask = get_each_mask(h, w, exit_areas)
     # 需要知道前一辆车的位置在哪
     # 基于汽车id来分
     car_list = []
@@ -493,7 +500,7 @@ min_cars = 5
 # w, h = (1920, 1080)
 
 mask = []  # 车道区域
-scale_line = [[0.4934539794921875, 0.2621527777777778], [0.5608367919921875, 0.265625]]  # 比例尺线
+scale_line = [[0.5134735107421875, 0.8012152777777778], [0.5886688232421875, 0.8029513888888888]]  # 比例尺线
 scale_length = 4 * 3.5  # 比例尺的实际尺寸，以m为单位
 entrance_areas = [[[0.4446258544921875, 0.2708333333333333], [0.4631805419921875, 0.2934027777777778],
                    [0.4905242919921875, 0.2604166666666667], [0.5618133544921875, 0.2621527777777778],
@@ -650,6 +657,5 @@ if len(scale_line) != 0 and scale_length:
 # intersection_mask = get_mask(h, w, intersection_area)
 # speed = calculate_speed_at_intersection(info_list, length_per_pixel, intersection_mask)
 # # 出口道
-exit_mask = get_each_mask(h, w, exit_areas)
 # headway_times = calculate_headway_times(info_list, exit_mask, entrance_lane_num, min_cars)
-calculate_headway_distances(info_list, length_per_pixel, exit_mask, entrance_lane_num, min_cars)
+calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w, exit_areas)
