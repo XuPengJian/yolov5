@@ -133,7 +133,6 @@ def calculate_headway_distance(car_list, lanes_arrays, length_per_pixel):
     # print('----------------------------each track----------------------------')
     sum_distance = 0
     lanes_lens = len(lanes_arrays)
-    # print(lanes_arrays)
     for each_lane in lanes_arrays:
         # 单个车道对应的车头间距
         each_distance = 0
@@ -202,7 +201,7 @@ def calculate_headway_time(lanes_arrays):
     # 计算总平均车头时距的分母，一般为车道数，特殊情况会进行删减，如有车道对应排到的车只有一辆不构成时间的计算
     lanes_lens = len(lanes_arrays)
     for each_lane in lanes_arrays:
-        print(len(each_lane))
+        # print(len(each_lane))
         # 若单车道对应的车只有一辆，则跳过计算
         if len(each_lane) == 1:
             lanes_lens -= 1
@@ -220,9 +219,65 @@ def calculate_headway_time(lanes_arrays):
         return average_time
 
 
+# 通过进口道车道数计算各轨迹对应的行驶车道，返回一个按轨迹顺序存储的列表
+def calculate_exit_correspond_lanes(info_list, entrance_lanes, entrance_mask):
+    # print(entrance_lanes)
+    # 轨迹类别对应的车道数
+    exit_correspond_lanes_dic = {}
+    # 先通过进口道筛选一遍
+    entrance_list = []
+    # 遍历每一个mask
+    for each_entrance in entrance_mask:
+        car_dict = {}
+        # 判断中心点是否位于mask区域内
+        for track_info in info_list:
+            center_x, center_y = calculate_midpoint(track_info)
+            if is_point_in_mask((center_x, center_y), each_entrance):
+                # 基于轨迹类型对获取每个id的在路口区域的轨迹
+                if track_info['id'] not in car_dict:
+                    car_dict[track_info['id']] = track_info
+        entrance_list.append(car_dict)
+
+    for i, each_area_cars in enumerate(entrance_list):
+        if len(each_area_cars) != 0:
+            # 存储轨迹类别的list
+            all_direction_cls = [[] for _ in range(3)]
+            for j, each_car in enumerate(each_area_cars.values()):
+                # 直行
+                if '直行' in each_car['direction_cls']:
+                    if each_car['track_cls'] not in all_direction_cls[1]:
+                        all_direction_cls[1].append(each_car['track_cls'])
+                        # 进口道车道顺序与进口道mask顺序一一对应，因此直接用索引获取
+                        exit_correspond_lanes_dic[each_car['track_cls']] = [entrance_lanes[i][2],
+                                                                        entrance_lanes[i][1] + entrance_lanes[i][3]]
+                elif '右转' in each_car['direction_cls']:
+                    if each_car['track_cls'] not in all_direction_cls[2]:
+                        all_direction_cls[2].append(each_car['track_cls'])
+                        exit_correspond_lanes_dic[each_car['track_cls']] = [entrance_lanes[i][4], entrance_lanes[i][3]]
+                # 左转和掉头
+                else:
+                    if each_car['track_cls'] not in all_direction_cls[0]:
+                        all_direction_cls[0].append(each_car['track_cls'])
+                        exit_correspond_lanes_dic[each_car['track_cls']] = [entrance_lanes[i][0], entrance_lanes[i][1]]
+            # print(all_direction_cls)
+
+    # print(exit_correspond_lanes_dic)
+    # 轨迹排序
+    exit_correspond_lanes_list = []
+    # 排序轨迹
+    for i in range(len(exit_correspond_lanes_dic)):
+        exit_correspond_lanes_list.append(exit_correspond_lanes_dic[i])
+    # print(exit_correspond_lanes_list)
+
+    return exit_correspond_lanes_list
+
+
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
-def calculate_headway_times(info_list, exit_mask, entrance_lane_num, min_cars):
+def calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas, exit_areas):
+    # 获取出口道的mask
+    exit_mask = get_each_mask(h, w, exit_areas)
+    entrance_mask = get_each_mask(h, w, entrance_areas)
     # 需要知道前一辆车的位置在哪
     # 基于汽车id来分
     car_list = []
@@ -241,71 +296,76 @@ def calculate_headway_times(info_list, exit_mask, entrance_lane_num, min_cars):
         car_list.append(car_dict)
     # print(car_list)
 
+    # 计算出口到轨迹对应的车道数
+    exit_correspond_lanes_list = calculate_exit_correspond_lanes(info_list, entrance_lane_num, entrance_mask)
+
     # 遍历四个mask
     for i, each_area_cars in enumerate(car_list):
         if len(each_area_cars) != 0:
-            print('-----------------------------------------------------------------')
+            # print('-----------------------------------------------------------------')
             # 删掉分错类别的轨迹（按照筛选轨迹的最小数量来分）
             each_area_cars = delete_cls(each_area_cars, min_cars)
             # 存储所有类别，按照左转、直行、右转的顺序
             all_direction_cls = [[] for _ in range(3)]
+            # 构建存储三个方向对应车辆id的进入顺序 [[], [], []]
+            # 生成三维空数组的列表,通过出口道最大（这里相当于打算用一个小技巧，按顺序依次插入到每个列表中，是一种我们自己假设的理想情况）
+            lanes_arrays = [[] for _ in range(3)]
             # 索引值初始化
             index = [0, 0, 0]
-            # 索引最大值——每个方向车道的最大可行驶的车道数，按照左转、直行、右转的顺序分别对应索引0， 2， 4，其中1、3为共用车道
-            passable_lanes_num_list = [entrance_lane_num[i][0] + entrance_lane_num[i][1],
-                                       entrance_lane_num[i][2] + entrance_lane_num[i][1] + entrance_lane_num[i][3],
-                                       entrance_lane_num[i][4] + entrance_lane_num[i][3]]
-            # 每个行驶方向所对应共用车道的个数
-            share_lanes_num = [entrance_lane_num[i][1], entrance_lane_num[i][1] + entrance_lane_num[i][3],
-                               entrance_lane_num[i][3]]
             # 定义一个标签，用于标识共用车道数是否写入，默认第一次写入，第二次不写入，以此类推
             is_add_share_lanes = [True, True, True]
-            # 生成三维空数组的列表,通过出口道最大（这里相当于打算用一个小技巧，按顺序依次插入到每个列表中，是一种我们自己假设的理想情况）
-            # 按照左转、直行、右转的顺序存储模拟对应方向的车道数，最内层的list存储模拟车道中，对应车辆进入出口道的时间（frame）
-            lanes_arrays = [[[] for _ in range(passable_lanes_num_list[0])],
-                            [[] for _ in range(passable_lanes_num_list[1])],
-                            [[] for _ in range(passable_lanes_num_list[2])]]
             # print('---------------------------------------------------------')
             # 遍历每一辆车首次出现在出口道mask内的信息
             for j, each_car in enumerate(each_area_cars.values()):
-                # print(car['track_cls'], car['direction_cls'])
+                max_lanes = exit_correspond_lanes_list[each_car[0]['track_cls']][0] + \
+                          exit_correspond_lanes_list[each_car[0]['track_cls']][1]
+                share_lane = exit_correspond_lanes_list[each_car[0]['track_cls']][1]
                 # 将行驶到同一个mask的区域按照不同转向方向进行划分，因为它们不会同时出现。然后将每个方向第一帧记录下来
                 # 直行
                 if '直行' in each_car[0]['direction_cls']:
-                    lanes_arrays[1][index[1]].append(each_car[0]['frame'])
                     # 将直行的轨迹类别track_cls加入到基于direction_cls创建的列表，这种主要是考虑到有多条轨迹的情况
                     if each_car[0]['track_cls'] not in all_direction_cls[1]:
                         all_direction_cls[1].append(each_car[0]['track_cls'])
+                        # 由于在初始化时不确定对应的车道数量，因此在拿到轨迹类别时再做判断并生成模拟的车道存储列表
+                        if not lanes_arrays[1]:
+                            lanes_arrays[1] = [[] for _ in range(max_lanes)]
+
+                    lanes_arrays[1][index[1]].append(each_car[0]['frame'])
                     # 索引递增
                     # 索引递增和重置--数值到passable_lanes_num，超过最大车道数时，重新回到0塞入对应的列表中
-                    index[1], is_add_share_lanes[1] = reset_index(index[1], passable_lanes_num_list[1],
-                                                                  share_lanes_num[1], is_add_share_lanes[1])
+                    index[1], is_add_share_lanes[1] = reset_index(index[1], max_lanes, share_lane,
+                                                                  is_add_share_lanes[1])
                 elif '右转' in each_car[0]['direction_cls']:
-                    lanes_arrays[2][index[2]].append(each_car[0]['frame'])
                     if each_car[0]['track_cls'] not in all_direction_cls[2]:
                         all_direction_cls[2].append(each_car[0]['track_cls'])
-                    index[2], is_add_share_lanes[2] = reset_index(index[2], passable_lanes_num_list[2],
-                                                                  share_lanes_num[2], is_add_share_lanes[2])
+                        if not lanes_arrays[2]:
+                            lanes_arrays[2] = [[] for _ in range(max_lanes)]
+
+                    lanes_arrays[2][index[2]].append(each_car[0]['frame'])
+                    index[2], is_add_share_lanes[2] = reset_index(index[2], max_lanes, share_lane,
+                                                                  is_add_share_lanes[2])
                 # 左转和掉头
                 else:
-                    lanes_arrays[0][index[0]].append(each_car[0]['frame'])
                     if each_car[0]['track_cls'] not in all_direction_cls[0]:
                         all_direction_cls[0].append(each_car[0]['track_cls'])
-                    index[0], is_add_share_lanes[0] = reset_index(index[0], passable_lanes_num_list[0],
-                                                                  share_lanes_num[0], is_add_share_lanes[0])
+                        if not lanes_arrays[0]:
+                            lanes_arrays[0] = [[] for _ in range(max_lanes)]
+
+                    lanes_arrays[0][index[0]].append(each_car[0]['frame'])
+                    index[0], is_add_share_lanes[0] = reset_index(index[0], max_lanes, share_lane,
+                                                                  is_add_share_lanes[0])
 
             # 计算车头时距
             for k, cls_list in enumerate(all_direction_cls):
                 # 先判断是否有数据
                 if len(cls_list) != 0:
-                    print(k, lanes_arrays[k])
                     average_time = calculate_headway_time(lanes_arrays[k])
                     # print(average_time, cls_list)
                     # print(lanes_arrays[k])
                     for cls in cls_list:
                         if cls not in sequence_time_dic:
                             sequence_time_dic[cls] = average_time
-    print(sequence_time_dic)
+    # print(sequence_time_dic)
 
     sequence_time_list = []
     # 排序轨迹
@@ -318,9 +378,11 @@ def calculate_headway_times(info_list, exit_mask, entrance_lane_num, min_cars):
 
 # 车头间距
 # 车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间（进入出口道），”前车车头“与”后车车头“之间的实际距离。
-def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w, exit_areas):
+def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w,
+                                entrance_areas, exit_areas):
     # 获取出口道的mask
     exit_mask = get_each_mask(h, w, exit_areas)
+    entrance_mask = get_each_mask(h, w, entrance_areas)
     # 需要知道前一辆车的位置在哪
     # 基于汽车id来分
     car_list = []
@@ -341,49 +403,57 @@ def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, 
         car_list.append(car_dict)
     # print(car_list[0][27][0]['frame'])
 
+    # 计算出口到轨迹对应的车道数
+    exit_correspond_lanes_list = calculate_exit_correspond_lanes(info_list, entrance_lane_num, entrance_mask)
+
     # 遍历四个mask(逻辑与计算车头时距差不多)
     for i, each_area_cars in enumerate(car_list):
         if len(each_area_cars) != 0:
             each_area_cars = delete_cls(each_area_cars, min_cars)
             # 存储所有类别，按照左转、直行、右转的顺序
             all_cls = [[] for _ in range(3)]
+            # 构建存储三个方向对应车辆id的进入顺序 [[], [], []]
+            lanes_arrays = [[] for _ in range(3)]
             index = [0, 0, 0]
-            # 索引最大值——每个方向车道的最大可行驶的车道数，按照左转、直行、右转的顺序分别对应索引0， 2， 4，其中1、3为共用车道
-            passable_lanes_num_list = [entrance_lane_num[i][0] + entrance_lane_num[i][1],
-                                       entrance_lane_num[i][2] + entrance_lane_num[i][1] + entrance_lane_num[i][3],
-                                       entrance_lane_num[i][4] + entrance_lane_num[i][3]]
-            # 每个行驶方向所对应共用车道的个数
-            share_lanes_num = [entrance_lane_num[i][1], entrance_lane_num[i][1] + entrance_lane_num[i][3],
-                               entrance_lane_num[i][3]]
             # 定义一个标签，用于标识共用车道数是否写入，默认第一次写入，第二次不写入，以此类推
             is_add_share_lanes = [True, True, True]
-            # 构建存储三个方向对应车辆id的进入顺序
-            lanes_arrays = [[[] for _ in range(passable_lanes_num_list[0])],
-                            [[] for _ in range(passable_lanes_num_list[1])],
-                            [[] for _ in range(passable_lanes_num_list[2])]]
             for j, each_car in enumerate(each_area_cars.values()):
+                # 通过轨迹序号track_cls作为索引获取该轨迹对应的车道数
+                max_lanes = exit_correspond_lanes_list[each_car[0]['track_cls']][0] + \
+                          exit_correspond_lanes_list[each_car[0]['track_cls']][1]
+                share_lane = exit_correspond_lanes_list[each_car[0]['track_cls']][1]
                 if '直行' in each_car[0]['direction_cls']:
                     # 将表示车辆的id依次存入表示车道的列表，用作后续的距离计算
                     # 用每条车辆轨迹的第一条数据信息来检索，如取'id''track_cls'等
-                    lanes_arrays[1][index[1]].append(each_car[0]['id'])
                     if each_car[0]['track_cls'] not in all_cls[1]:
                         all_cls[1].append(each_car[0]['track_cls'])
+                        # 由于在初始化时不确定对应的车道数量，因此在拿到轨迹类别时再做判断并生成模拟的车道存储列表
+                        if not lanes_arrays[1]:
+                            lanes_arrays[1] = [[] for _ in range(max_lanes)]
+
+                    lanes_arrays[1][index[1]].append(each_car[0]['id'])
                     # 索引递增和重置
-                    index[1], is_add_share_lanes[1] = reset_index(index[1], passable_lanes_num_list[1],
-                                                                  share_lanes_num[1], is_add_share_lanes[1])
+                    index[1], is_add_share_lanes[1] = reset_index(index[1], max_lanes, share_lane,
+                                                                  is_add_share_lanes[1])
                 elif '右转' in each_car[0]['direction_cls']:
-                    lanes_arrays[2][index[2]].append(each_car[0]['id'])
                     if each_car[0]['track_cls'] not in all_cls[2]:
                         all_cls[2].append(each_car[0]['track_cls'])
-                    index[2], is_add_share_lanes[2] = reset_index(index[2], passable_lanes_num_list[2],
-                                                                  share_lanes_num[2], is_add_share_lanes[2])
+                        if not lanes_arrays[2]:
+                            lanes_arrays[2] = [[] for _ in range(max_lanes)]
+
+                    lanes_arrays[2][index[2]].append(each_car[0]['id'])
+                    index[2], is_add_share_lanes[2] = reset_index(index[2], max_lanes, share_lane,
+                                                                  is_add_share_lanes[2])
                 # 左转和掉头
                 else:
-                    lanes_arrays[0][index[0]].append(each_car[0]['id'])
                     if each_car[0]['track_cls'] not in all_cls[0]:
                         all_cls[0].append(each_car[0]['track_cls'])
-                    index[0], is_add_share_lanes[0] = reset_index(index[0], passable_lanes_num_list[0],
-                                                                  share_lanes_num[0], is_add_share_lanes[0])
+                        if not lanes_arrays[0]:
+                            lanes_arrays[0] = [[] for _ in range(max_lanes)]
+
+                    lanes_arrays[0][index[0]].append(each_car[0]['id'])
+                    index[0], is_add_share_lanes[0] = reset_index(index[0], max_lanes, share_lane,
+                                                                  is_add_share_lanes[0])
             # print(lanes_arrays)
             # print(all_cls)
 
@@ -395,7 +465,7 @@ def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, 
                     for cls in cls_list:
                         if cls not in sequence_distance_dic:
                             sequence_distance_dic[cls] = average_distance
-    print(sequence_distance_dic)
+    # print(sequence_distance_dic)
 
     sequence_distance_list = []
     # 排序轨迹
@@ -567,48 +637,48 @@ intersection_area = [[[0.4436492919921875, 0.2647569444444444], [0.4573211669921
                       [0.4133758544921875, 0.6970486111111112], [0.4065399169921875, 0.3932291666666667],
                       [0.4231414794921875, 0.3515625], [0.4075164794921875, 0.3116319444444444]]]
 
-# ---------------第二组测试数据---------------
-# 读取的txt数据
-txt_path = r'example\5.txt'
-# 底图图片
-image_path = r'example\5.jpg'
-# 超参
-threshold = 0.125
-min_cars = 5
-
-# 画面尺寸
-# w, h = (3810, 2160)
-
-mask = []  # 车道区域
-scale_line = [[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]]  # 比例尺线
-scale_length = 5 * 3.5  # 比例尺的实际尺寸，以m为单位
-entrance_areas = [[[0.4368133544921875, 0], [0.4368133544921875, 0.2482638888888889],
-                   [0.5149383544921875, 0.25], [0.5129852294921875, 0]],
-                  [[0.6838836669921875, 0.4565972222222222], [0.6838836669921875, 0.5677083333333334],
-                   [0.9973602294921875, 0.5763888888888888], [0.9963836669921875, 0.4739583333333333]],
-                  [[0.5276336669921875, 0.8125], [0.6125946044921875, 0.828125],
-                   [0.6155242919921875, 0.9930555555555556], [0.5276336669921875, 0.9965277777777778]],
-                  [[0.0002899169921875, 0.5347222222222222], [0.1321258544921875, 0.5225694444444444],
-                   [0.3791961669921875, 0.5434027777777778], [0.3762664794921875, 0.6527777777777778],
-                   [0.0017547607421875, 0.6145833333333334]]]  # 进口道区域
-entrance_lane_num = [[1, 0, 3, 0, 1], [1, 0, 3, 0, 1], [3, 0, 3, 0, 1], [1, 0, 2, 0, 2]]
-exit_areas = [[[0.5198211669921875, 0.8098958333333334], [0.4514617919921875, 0.7977430555555556],
-               [0.4524383544921875, 0.9956597222222222], [0.5256805419921875, 0.9973958333333334]],
-              [[0.6848602294921875, 0.5824652777777778], [0.6790008544921875, 0.6796875],
-               [0.9954071044921875, 0.7057291666666666], [0.9963836669921875, 0.6085069444444444]],
-              [[0.5247039794921875, 0.2526041666666667], [0.5989227294921875, 0.24913194444444445],
-               [0.5959930419921875, 0.0008680555555555555], [0.5188446044921875, 0.0008680555555555555]],
-              [[0.0012664794921875, 0.4105902777777778], [0.3850555419921875, 0.4296875],
-               [0.3791961669921875, 0.5303819444444444], [-0.0006866455078125, 0.5026041666666666]]]
-exit_lane_num = [[5, 0], [4, 0], [5, 0], [4, 0]]
-stop_lines = [[[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]],
-              [[0.6858367919921875, 0.421875], [0.6838836669921875, 0.5677083333333334]],
-              [[0.6223602294921875, 0.8263888888888888], [0.5256805419921875, 0.8107638888888888]],
-              [[0.3752899169921875, 0.6805555555555556], [0.3782196044921875, 0.5486111111111112]]]  # 停止线位置
-intersection_area = [[[0.4407196044921875, 0.2543402777777778], [0.3801727294921875, 0.3862847222222222],
-                      [0.3752899169921875, 0.6935763888888888], [0.4280242919921875, 0.7960069444444444],
-                      [0.6311492919921875, 0.8272569444444444], [0.6838836669921875, 0.7421875],
-                      [0.6848602294921875, 0.3845486111111111], [0.6096649169921875, 0.2560763888888889]]]
+# # ---------------第二组测试数据---------------
+# # 读取的txt数据
+# txt_path = r'example\5.txt'
+# # 底图图片
+# image_path = r'example\5.jpg'
+# # 超参
+# threshold = 0.125
+# min_cars = 5
+#
+# # 画面尺寸
+# # w, h = (3810, 2160)
+#
+# mask = []  # 车道区域
+# scale_line = [[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]]  # 比例尺线
+# scale_length = 5 * 3.5  # 比例尺的实际尺寸，以m为单位
+# entrance_areas = [[[0.4368133544921875, 0], [0.4368133544921875, 0.2482638888888889],
+#                    [0.5149383544921875, 0.25], [0.5129852294921875, 0]],
+#                   [[0.6838836669921875, 0.4565972222222222], [0.6838836669921875, 0.5677083333333334],
+#                    [0.9973602294921875, 0.5763888888888888], [0.9963836669921875, 0.4739583333333333]],
+#                   [[0.5276336669921875, 0.8125], [0.6125946044921875, 0.828125],
+#                    [0.6155242919921875, 0.9930555555555556], [0.5276336669921875, 0.9965277777777778]],
+#                   [[0.0002899169921875, 0.5347222222222222], [0.1321258544921875, 0.5225694444444444],
+#                    [0.3791961669921875, 0.5434027777777778], [0.3762664794921875, 0.6527777777777778],
+#                    [0.0017547607421875, 0.6145833333333334]]]  # 进口道区域
+# entrance_lane_num = [[1, 0, 3, 0, 1], [1, 0, 3, 0, 1], [3, 0, 3, 0, 1], [1, 0, 2, 0, 2]]
+# exit_areas = [[[0.5198211669921875, 0.8098958333333334], [0.4514617919921875, 0.7977430555555556],
+#                [0.4524383544921875, 0.9956597222222222], [0.5256805419921875, 0.9973958333333334]],
+#               [[0.6848602294921875, 0.5824652777777778], [0.6790008544921875, 0.6796875],
+#                [0.9954071044921875, 0.7057291666666666], [0.9963836669921875, 0.6085069444444444]],
+#               [[0.5247039794921875, 0.2526041666666667], [0.5989227294921875, 0.24913194444444445],
+#                [0.5959930419921875, 0.0008680555555555555], [0.5188446044921875, 0.0008680555555555555]],
+#               [[0.0012664794921875, 0.4105902777777778], [0.3850555419921875, 0.4296875],
+#                [0.3791961669921875, 0.5303819444444444], [-0.0006866455078125, 0.5026041666666666]]]
+# exit_lane_num = [[5, 0], [4, 0], [5, 0], [4, 0]]
+# stop_lines = [[[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]],
+#               [[0.6858367919921875, 0.421875], [0.6838836669921875, 0.5677083333333334]],
+#               [[0.6223602294921875, 0.8263888888888888], [0.5256805419921875, 0.8107638888888888]],
+#               [[0.3752899169921875, 0.6805555555555556], [0.3782196044921875, 0.5486111111111112]]]  # 停止线位置
+# intersection_area = [[[0.4407196044921875, 0.2543402777777778], [0.3801727294921875, 0.3862847222222222],
+#                       [0.3752899169921875, 0.6935763888888888], [0.4280242919921875, 0.7960069444444444],
+#                       [0.6311492919921875, 0.8272569444444444], [0.6838836669921875, 0.7421875],
+#                       [0.6848602294921875, 0.3845486111111111], [0.6096649169921875, 0.2560763888888889]]]
 
 # ==================================================================
 # ============================数据处理===============================
@@ -657,5 +727,5 @@ if len(scale_line) != 0 and scale_length:
 # intersection_mask = get_mask(h, w, intersection_area)
 # speed = calculate_speed_at_intersection(info_list, length_per_pixel, intersection_mask)
 # # 出口道
-# headway_times = calculate_headway_times(info_list, exit_mask, entrance_lane_num, min_cars)
-calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w, exit_areas)
+headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas, exit_areas)
+headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w, entrance_areas, exit_areas)
