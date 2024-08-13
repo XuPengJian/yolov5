@@ -79,7 +79,6 @@ def get_each_mask(h, w, mask_pt: list):
 # 停止线数据去归一化
 def unormalize_line(h, w, stop_line):
     new_line = [[[int(x * w), int(y * h)] for x, y in line] for line in stop_line]
-    print(new_line)
     return new_line
 
 
@@ -230,6 +229,63 @@ def calculate_pt_to_segment(pt, segment):
     pt_distance = calculate_distance(pt, p_proj)
 
     return pt_distance
+
+
+# 通过计算mask区域到停止线的距离返回对应停止线
+def calculate_mask_to_line(entrance_areas, stop_segments, h, w):
+    # 存储每个mask对应的停止线
+    area_lines = [[] for _ in range(len(entrance_areas))]
+    # 存储每个mask的中点
+    mask_midpoints = []
+    for each_area in entrance_areas:
+        x_coords = [point[0] * w for point in each_area]
+        y_coords = [point[1] * h for point in each_area]
+
+        # 计算当前闭合区域的中点
+        x = sum(x_coords) / len(x_coords)
+        y = sum(y_coords) / len(y_coords)
+        mask_midpoints.append([x, y])
+    # print(mask_midpoints)
+
+    # 分别计算中点到停止线的距离
+    for segment in stop_segments:
+        # 最小的距离（先给定一个大值）
+        min_distance = w
+        # 最小距离对应的index
+        min_index = 0
+        # print('----------------------------------------------------------------------------------')
+        # print(segment)
+        # 停止线的中点
+        stop_midpoint = [(segment[1][0] + segment[0][0]) / 2, (segment[1][1] + segment[0][1]) / 2]
+        for i, mask_midpoint in enumerate(mask_midpoints):
+            pt_distance = calculate_distance(stop_midpoint, mask_midpoint)
+            # 判断停止线到mask区域的距离，并获取最短的距离与对应的索引
+            if pt_distance < min_distance:
+                min_distance = pt_distance
+                min_index = i
+            # print(pt_distance)
+        area_lines[min_index].append(segment)
+        # print(min_distance, min_index)
+
+    # 调整顺序，若有右转专用道，保持先直行停止线后右转停止线的顺序
+    for i, each_line in enumerate(area_lines):
+        # 同一进口道区域停止线不止一条时
+        if len(each_line) > 1:
+            length0 = calculate_distance(each_line[0][0], each_line[0][1])
+            length1 = calculate_distance(each_line[1][0], each_line[1][1])
+
+            # 调整内部顺序，长的为直行，放前面，短的为右转，放后面
+            if length0 > length1:
+                straight = each_line[0]
+                right = each_line[1]
+            else:
+                # 如果第二条线段更长，交换它们的位置
+                straight = each_line[1]
+                right = each_line[0]
+            area_lines[i][0] = straight
+            area_lines[i][1] = right
+
+    return area_lines
 
 
 # 计算车头时距
@@ -396,9 +452,11 @@ def calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lan
 # 排队长度
 # 排队长度指路口进口道各转向的排队长度；定义为从路口信号灯转为绿灯时刻，该路口进口道各转向车流排队最后一辆车距离路口停止线的距离。
 # 直接算每根线的直线距离吧，然后选一根最短的
-def calculate_queue_length(info_list, length_per_pixel, entrance_mask, stop_segments):
+def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_lane_num, h, w, entrance_areas):
     # TODO:需要判断车辆在什么情况处于排队状态
     # TODO:需要知道停止线的位置
+    # 计算进口道对应的mask
+    entrance_mask = get_each_mask(h, w, entrance_areas)
     # 先将车辆分到四个区域（进口道mask）
     car_list = []
     # 遍历每一个mask
@@ -408,14 +466,79 @@ def calculate_queue_length(info_list, length_per_pixel, entrance_mask, stop_segm
         for track_info in info_list:
             center_x, center_y = calculate_midpoint(track_info)
             if is_point_in_mask((center_x, center_y), each_mask):
-                # 保存进口道区域的车辆信息
-                if track_info['id'] not in car_dict:
-                    car_dict[track_info['id']] = [track_info]
+                # 保存进口道区域的车辆信息（以帧数为索引逐帧保存）
+                if track_info['frame'] not in car_dict:
+                    car_dict[track_info['frame']] = [track_info]
                 else:
-                    car_dict[track_info['id']].append(track_info)
+                    car_dict[track_info['frame']].append(track_info)
         car_list.append(car_dict)
 
     # 判断不同进口道mask所对应的停止线，并用一个list按照mask的相同顺序存储
+    # 计算返回每个mask对应的停止线
+    area_lines = calculate_mask_to_line(entrance_areas, stop_segments, h, w)
+    for i, each_area_cars in enumerate(car_list):
+        if len(each_area_cars) != 0:
+            print('-----------------------------------------------------------------')
+            # 每个方向对应的车道数，按照左转、直行、右转的顺序
+            lanes_num_list = [entrance_lane_num[i][0] + entrance_lane_num[i][1],
+                              entrance_lane_num[i][2] + entrance_lane_num[i][1] + entrance_lane_num[i][3],
+                              entrance_lane_num[i][4] + entrance_lane_num[i][3]]
+            # 记录车辆位置的状态，True表示位置变化，False表示不变，[0]保存上一帧的变化,[1]记录当前帧的变化
+            state_tag = [[True, True], [True, True], [True, True]]
+            # 每一帧的所有车
+            print('-------------------------------------------------')
+            # 存储每一帧离停止线距离最近的车辆（车道数为多少就存储多少辆），用于与下一帧做对比，若位置由不变到变，则判断为转为绿灯，进入计算
+            flag_car_midpoint = [{}, {}, {}]
+            for frame, each_frame_cars in each_area_cars.items():
+                # 最开始初始化一个空值，之后就不能用空值覆盖了
+                if all(not item for item in flag_car_midpoint):
+                    last_frame_info = flag_car_midpoint
+                flag_car_midpoint = [{}, {}, {}]
+                # 当前帧下的每一辆车
+                for each_car in each_frame_cars:
+                    # 计算检测框的中点
+                    mid_point = calculate_midpoint(each_car)
+                    if '直行' in each_car['direction_cls']:
+                        # 计算到停止线的距离
+                        pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
+                        # 填入与车道数相同数量的车，存储信息包括在画面中的位置（中点）和到停止线的距离
+                        if len(flag_car_midpoint[1]) < lanes_num_list[1]:
+                            flag_car_midpoint[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
+                            # print(flag_car_midpoint)
+                        # 已填满对应数量的车时，对比是否有更小的值，有则替换
+                        else:
+                            # 先进行排序，满足距离从大到小，以便后续的查找替换
+                            # 使用 sorted() 函数和自定义 key 进行排序
+                            sorted_items = sorted(flag_car_midpoint[1].items(), key=lambda item: item[1][1], reverse=True)
+                            # 将排序后的项转换回字典
+                            flag_car_midpoint[1] = {key: value for key, value in sorted_items}
+                            for car_id, location in flag_car_midpoint[1].items():
+                                # 出现距离更小的值，删除原值并替换
+                                if pt_to_line_distance < location[1] and each_car['id'] not in flag_car_midpoint[1]:
+                                    del flag_car_midpoint[1][car_id]
+                                    flag_car_midpoint[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
+                                    # print('old', last_frame_info)
+                                    # print(flag_car_midpoint)
+                                    break
+
+                    elif '右转' in each_car['direction_cls']:
+                        # 有右转专用道时
+                        if len(area_lines[i]) > 1:
+                            pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][1])
+                        # 无右转专用道时，停止线通用
+                        else:
+                            pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
+                    # 左转和掉头
+                    else:
+                        pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
+                print('对比', lanes_num_list[1])
+                print(last_frame_info)
+                print(flag_car_midpoint)
+                # TODO:看看怎么处理出现某一帧没识别到的情况，比如明明上一次是静止状态这一次有一辆车就消失了是不合理的应该是没检测到，
+                #  那么这一次新的值用上一次的来赋值，也就是这一次的计算结果作废
+                last_frame_info = flag_car_midpoint
+
+            # 获取离停止线最近的几个点（与车道数有关）
     # 判断停止线数量并对应做不同的处理：停止线大于四条说明有右转专用道
     # 用点到线的距离判断对应停止线是哪条
     # 有右转专用道时，右转与直行对应的停止线距离可能差不多，无法单纯用距离判断，取距离最短的两条根据轨迹类型分，较长的为直行对应停止线
@@ -528,7 +651,7 @@ entrance_areas = [[[0.4446258544921875, 0.2708333333333333], [0.4631805419921875
                    [0.6721649169921875, 0.3333333333333333], [0.9993133544921875, 0.3611111111111111],
                    [0.9983367919921875, 0.5138888888888888], [0.9534149169921875, 0.5190972222222222],
                    [0.6516571044921875, 0.5243055555555556]]]  # 进口道区域
-entrance_lane_num = [[2, 0, 2, 0, 1], [2, 0, 2, 0, 1], [2, 1, 1, 0, 1], [1, 0, 3, 0, 1]]
+entrance_lane_num = [[2, 0, 2, 0, 1], [2, 0, 3, 0, 1], [2, 1, 1, 0, 1], [1, 0, 3, 0, 1]]
 exit_areas = [[[0.4436492919921875, 0.2630208333333333], [0.4592742919921875, 0.2942708333333333],
                [0.4163055419921875, 0.3637152777777778], [0.4065399169921875, 0.3880208333333333],
                [0.4065399169921875, 0.5199652777777778], [0.0012664794921875, 0.5217013888888888],
@@ -670,6 +793,5 @@ if len(scale_line) != 0 and scale_length:
 # exit_mask = get_each_mask(h, w, exit_areas)
 # headway_times = calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
 # headway_distances = calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
-entrance_mask = get_each_mask(h, w, entrance_areas)
 stop_segments = unormalize_line(h, w, stop_lines)
-calculate_queue_length(info_list, length_per_pixel, entrance_mask, stop_segments)
+calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_lane_num, h, w, entrance_areas)
