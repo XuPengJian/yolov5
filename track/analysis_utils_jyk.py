@@ -334,7 +334,7 @@ def get_2_stage_cars(current_frame_info, current_farthest_car, lanes_num, mid_po
 
     if len(current_farthest_car) < lanes_num:
         current_farthest_car[each_car_info['id']] = pt_to_line_distance
-        # print(current_farthest_car[1])
+        # print(current_farthest_car)
     else:
         # 使用 min 函数找到最小 value 对应的 key，比较出现有更大的值时删除这个最小的
         min_key = min(current_farthest_car, key=lambda k: current_farthest_car[k])
@@ -599,9 +599,23 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                         # 无右转专用道时，停止线通用
                         else:
                             pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
+                        # 统计车辆轨迹类别
+                        if each_car['track_cls'] not in all_cls[2]:
+                            all_cls[2].append(each_car['track_cls'])
+                        # 计算距离最短与距离最长的车
+                        current_frame_info[2], current_farthest_car[2] = \
+                            get_2_stage_cars(current_frame_info[2], current_farthest_car[2], lanes_num_list[2],
+                                             mid_point, pt_to_line_distance, each_car)
                     # 左转和掉头
                     else:
                         pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
+                        # 统计车辆轨迹类别
+                        if each_car['track_cls'] not in all_cls[0]:
+                            all_cls[0].append(each_car['track_cls'])
+                        # 计算距离最短与距离最长的车
+                        current_frame_info[0], current_farthest_car[0] = \
+                            get_2_stage_cars(current_frame_info[0], current_farthest_car[0], lanes_num_list[0],
+                                             mid_point, pt_to_line_distance, each_car)
 
                 # print('对比', lanes_num_list[1])
                 # print(last_frame_info)
@@ -633,8 +647,8 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                     # if current_frame_info[j]:
                     #     print(state_tag[j])
                 last_frame_info = current_frame_info
-            # 当前mask所有计算结束后的数据补充，没有计算到对应值的轨迹返回None
 
+            # 当前mask所有计算结束后的数据补充，没有计算到对应值的轨迹返回None
             for k, cls_list in enumerate(all_cls):
                 # 先判断是否有数据
                 if len(cls_list) != 0:
