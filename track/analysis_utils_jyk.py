@@ -348,6 +348,23 @@ def get_2_stage_cars(current_frame_info, current_farthest_car, lanes_num, mid_po
     return current_frame_info, current_farthest_car
 
 
+# 计算排队长度
+def calculate_traj_queue_length(lanes_num, current_farthest_car, length_per_pixel):
+    # 车辆数量还不够平均每车道一辆，数据没有计算意义
+    if len(current_farthest_car) < lanes_num:
+        return None
+    else:
+        # 总长度
+        length_sum = 0
+        for length in current_farthest_car.values():
+            length_sum += length
+        # 计算平均排队长度
+        queue_length = length_sum / lanes_num * length_per_pixel
+
+        # print(queue_length)
+        return queue_length
+
+
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
 def calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars):
@@ -519,6 +536,8 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
     entrance_mask = get_each_mask(h, w, entrance_areas)
     # 先将车辆分到四个区域（进口道mask）
     car_list = []
+    # 存储轨迹对应的排队长度
+    queue_length_dict = {}
     # 遍历每一个mask
     for each_mask in entrance_mask:
         car_dict = {}
@@ -594,23 +613,38 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                         current_frame_info[j] = last_frame_info[j]
                     # 保存相关数据，将当前数据结果保存给下一帧
                     state_tag[j][0] = state_tag[j][1]
-                    if current_frame_info[j]:
-                        print(state_tag[j])
-                        print(current_frame_info[j])
-                        print(last_frame_info[j])
+                    # if current_frame_info[j]:
+                    #     print(state_tag[j])
+                    #     print(current_frame_info[j])
+                    #     print(last_frame_info[j])
                     # 计算当前帧车辆行驶状态
                     state_tag[j][1] = is_car_move(current_frame_info[j], last_frame_info[j], h, w)
-                    # TODO:计算需要——最远的n辆车，轨迹序号
+                    # 判断并进行排队长度的计算，当车流状态为由静止到运动时认为是红灯转绿灯，即False, True
+                    if state_tag[j] == [False, True]:
+                        length = calculate_traj_queue_length(lanes_num_list[j], current_farthest_car[j], length_per_pixel)
+                        for cls in all_cls[j]:
+                            if cls not in queue_length_dict:
+                                queue_length_dict[cls] = length
                     # 修改为只要经过对比当前帧与上一帧车辆数据后，判断状态为静止（False），则用上一帧数据表示当前帧数据
                     # 用于避免车辆行驶缓慢的情况：
                     # 由于车辆刚启动，有可能前后两帧只移动1像素点，也就是不超过判断为移动的阈值，用该方法来实现计算隔几帧的位置
                     if not state_tag[j][1]:
                         current_frame_info[j] = last_frame_info[j]
-                    if current_frame_info[j]:
-                        print(state_tag[j])
+                    # if current_frame_info[j]:
+                    #     print(state_tag[j])
                 last_frame_info = current_frame_info
+            # 当前mask所有计算结束后的数据补充，没有计算到对应值的轨迹返回None
 
-            # 获取离停止线最近的几个点（与车道数有关）
+            for k, cls_list in enumerate(all_cls):
+                # 先判断是否有数据
+                if len(cls_list) != 0:
+                    for cls in cls_list:
+                        if cls not in queue_length_dict:
+                            queue_length_dict[cls] = None
+
+    print(queue_length_dict)
+
+    # 获取离停止线最近的几个点（与车道数有关）
     # 判断停止线数量并对应做不同的处理：停止线大于四条说明有右转专用道
     # 用点到线的距离判断对应停止线是哪条
     # 有右转专用道时，右转与直行对应的停止线距离可能差不多，无法单纯用距离判断，取距离最短的两条根据轨迹类型分，较长的为直行对应停止线
