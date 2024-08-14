@@ -312,6 +312,42 @@ def is_car_move(current_frame_info, last_frame_info, h, w):
     return state
 
 
+def get_2_stage_cars(current_frame_info, current_farthest_car, lanes_num, mid_point,
+                     pt_to_line_distance, each_car_info):
+
+    # 填入与车道数相同数量的距离最近的车，存储信息包括在画面中的位置（中点）和到停止线的距离
+    if len(current_frame_info) < lanes_num:
+        current_frame_info[each_car_info['id']] = [mid_point, pt_to_line_distance, each_car_info['frame']]
+        # print(current_frame_info)
+    # 已填满对应数量的车时，对比是否有更小的值，有则替换
+    else:
+        # 使用 max 函数找到最大距离对应的 key，比较出现有更小的值时删除这个最大值
+        max_key = max(current_frame_info, key=lambda k: current_frame_info[k][1])
+        for car_id, location in current_frame_info.items():
+            # 出现距离更小的值，删除原值并替换
+            if pt_to_line_distance < location[1] and each_car_info['id'] not in current_frame_info:
+                del current_frame_info[max_key]
+                current_frame_info[each_car_info['id']] = [mid_point, pt_to_line_distance, each_car_info['frame']]
+                # print('old', last_frame_info)
+                # print(current_frame_info)
+                break
+
+    if len(current_farthest_car) < lanes_num:
+        current_farthest_car[each_car_info['id']] = pt_to_line_distance
+        # print(current_farthest_car[1])
+    else:
+        # 使用 min 函数找到最小 value 对应的 key，比较出现有更大的值时删除这个最小的
+        min_key = min(current_farthest_car, key=lambda k: current_farthest_car[k])
+        for car_id, location in current_farthest_car.items():
+            # 出现距离更小的值，删除原值并替换
+            if pt_to_line_distance > location and each_car_info['id'] not in current_farthest_car:
+                del current_farthest_car[min_key]
+                current_farthest_car[each_car_info['id']] = pt_to_line_distance
+                break
+
+    return current_frame_info, current_farthest_car
+
+
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
 def calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars):
@@ -532,34 +568,10 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                         # 统计车辆轨迹类别
                         if each_car['track_cls'] not in all_cls[1]:
                             all_cls[1].append(each_car['track_cls'])
-                        # 填入与车道数相同数量的距离最近的车，存储信息包括在画面中的位置（中点）和到停止线的距离
-                        if len(current_frame_info[1]) < lanes_num_list[1]:
-                            current_frame_info[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
-                            # print(current_frame_info)
-                        # 已填满对应数量的车时，对比是否有更小的值，有则替换
-                        else:
-                            # 使用 max 函数找到最大距离对应的 key，比较出现有更小的值时删除这个最大值
-                            max_key = max(current_frame_info[1], key=lambda k: current_frame_info[1][k][1])
-                            for car_id, location in current_frame_info[1].items():
-                                # 出现距离更小的值，删除原值并替换
-                                if pt_to_line_distance < location[1] and each_car['id'] not in current_frame_info[1]:
-                                    del current_frame_info[1][max_key]
-                                    current_frame_info[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
-                                    # print('old', last_frame_info)
-                                    # print(current_frame_info)
-                                    break
-                        if len(current_farthest_car[1]) < lanes_num_list[1]:
-                            current_farthest_car[1][each_car['id']] = pt_to_line_distance
-                            # print(current_farthest_car[1])
-                        else:
-                            # 使用 min 函数找到最小 value 对应的 key，比较出现有更大的值时删除这个最小的
-                            min_key = min(current_farthest_car[1], key=lambda k: current_farthest_car[1][k])
-                            for car_id, location in current_farthest_car[1].items():
-                                # 出现距离更小的值，删除原值并替换
-                                if pt_to_line_distance > location and each_car['id'] not in current_farthest_car[1]:
-                                    del current_farthest_car[1][min_key]
-                                    current_farthest_car[1][each_car['id']] = pt_to_line_distance
-                                    break
+                        # 计算距离最短与距离最长的车
+                        current_frame_info[1], current_farthest_car[1] = \
+                            get_2_stage_cars(current_frame_info[1], current_farthest_car[1], lanes_num_list[1],
+                                             mid_point, pt_to_line_distance, each_car)
 
                     elif '右转' in each_car['direction_cls']:
                         # 有右转专用道时
@@ -571,6 +583,7 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                     # 左转和掉头
                     else:
                         pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
+
                 # print('对比', lanes_num_list[1])
                 # print(last_frame_info)
                 # print(current_frame_info)
