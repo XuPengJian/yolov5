@@ -288,6 +288,30 @@ def calculate_mask_to_line(entrance_areas, stop_segments, h, w):
     return area_lines
 
 
+def remove_duplicates(pt1, pt2, x_tolerance=0.001, y_tolerance=0.0015):
+    # 检查前后两帧的点是否接近重合
+    if abs(pt1[0] - pt2[0]) > x_tolerance or abs(pt1[1] - pt2[1]) > y_tolerance:
+        # 两点距离大于阈值则判断为不重合
+        return True
+    else:
+        return False
+
+
+# 判断车流是否为行进状态（绿灯）
+def is_car_move(current_frame_info, last_frame_info, h, w):
+    state = True
+    # 当车辆存在，且前后两帧中距离停止线距离最小的车辆相同，则开始判断是否重合
+    # 判断前先排序
+    if current_frame_info and sorted(current_frame_info.keys()) == sorted(last_frame_info.keys()):
+        state = False
+        for key in last_frame_info:
+            # 几个点中任意一点移动范围超过阈值，即判断为移动
+            if remove_duplicates(last_frame_info[key][0], current_frame_info[key][0],
+                                 x_tolerance=0.001 * h, y_tolerance=0.0015 * w):
+                state = True
+    return state
+
+
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
 def calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars):
@@ -478,7 +502,7 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
     area_lines = calculate_mask_to_line(entrance_areas, stop_segments, h, w)
     for i, each_area_cars in enumerate(car_list):
         if len(each_area_cars) != 0:
-            print('-----------------------------------------------------------------')
+            # print('-----------------------------------------------------------------')
             # 每个方向对应的车道数，按照左转、直行、右转的顺序
             lanes_num_list = [entrance_lane_num[i][0] + entrance_lane_num[i][1],
                               entrance_lane_num[i][2] + entrance_lane_num[i][1] + entrance_lane_num[i][3],
@@ -486,14 +510,14 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
             # 记录车辆位置的状态，True表示位置变化，False表示不变，[0]保存上一帧的变化,[1]记录当前帧的变化
             state_tag = [[True, True], [True, True], [True, True]]
             # 每一帧的所有车
-            print('-------------------------------------------------')
+            # print('-------------------------------------------------')
             # 存储每一帧离停止线距离最近的车辆（车道数为多少就存储多少辆），用于与下一帧做对比，若位置由不变到变，则判断为转为绿灯，进入计算
-            flag_car_midpoint = [{}, {}, {}]
+            current_frame_info = [{}, {}, {}]
             for frame, each_frame_cars in each_area_cars.items():
                 # 最开始初始化一个空值，之后就不能用空值覆盖了
-                if all(not item for item in flag_car_midpoint):
-                    last_frame_info = flag_car_midpoint
-                flag_car_midpoint = [{}, {}, {}]
+                if all(not item for item in current_frame_info):
+                    last_frame_info = current_frame_info
+                current_frame_info = [{}, {}, {}]
                 # 当前帧下的每一辆车
                 for each_car in each_frame_cars:
                     # 计算检测框的中点
@@ -502,23 +526,23 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                         # 计算到停止线的距离
                         pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
                         # 填入与车道数相同数量的车，存储信息包括在画面中的位置（中点）和到停止线的距离
-                        if len(flag_car_midpoint[1]) < lanes_num_list[1]:
-                            flag_car_midpoint[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
-                            # print(flag_car_midpoint)
+                        if len(current_frame_info[1]) < lanes_num_list[1]:
+                            current_frame_info[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
+                            # print(current_frame_info)
                         # 已填满对应数量的车时，对比是否有更小的值，有则替换
                         else:
                             # 先进行排序，满足距离从大到小，以便后续的查找替换
                             # 使用 sorted() 函数和自定义 key 进行排序
-                            sorted_items = sorted(flag_car_midpoint[1].items(), key=lambda item: item[1][1], reverse=True)
+                            sorted_items = sorted(current_frame_info[1].items(), key=lambda item: item[1][1], reverse=True)
                             # 将排序后的项转换回字典
-                            flag_car_midpoint[1] = {key: value for key, value in sorted_items}
-                            for car_id, location in flag_car_midpoint[1].items():
+                            current_frame_info[1] = {key: value for key, value in sorted_items}
+                            for car_id, location in current_frame_info[1].items():
                                 # 出现距离更小的值，删除原值并替换
-                                if pt_to_line_distance < location[1] and each_car['id'] not in flag_car_midpoint[1]:
-                                    del flag_car_midpoint[1][car_id]
-                                    flag_car_midpoint[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
+                                if pt_to_line_distance < location[1] and each_car['id'] not in current_frame_info[1]:
+                                    del current_frame_info[1][car_id]
+                                    current_frame_info[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
                                     # print('old', last_frame_info)
-                                    # print(flag_car_midpoint)
+                                    # print(current_frame_info)
                                     break
 
                     elif '右转' in each_car['direction_cls']:
@@ -531,12 +555,25 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                     # 左转和掉头
                     else:
                         pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
-                print('对比', lanes_num_list[1])
-                print(last_frame_info)
-                print(flag_car_midpoint)
-                # TODO:看看怎么处理出现某一帧没识别到的情况，比如明明上一次是静止状态这一次有一辆车就消失了是不合理的应该是没检测到，
-                #  那么这一次新的值用上一次的来赋值，也就是这一次的计算结果作废
-                last_frame_info = flag_car_midpoint
+                # print('对比', lanes_num_list[1])
+                # print(last_frame_info)
+                # print(current_frame_info)
+                for j in range(len(current_frame_info)):
+                    # 处理出现某一帧没识别到的情况，比如明明上一次是静止状态(False)这一次有一辆车就消失了是不合理的应该是没检测到，
+                    # 那么这一次新的值用上一次的来赋值，也就是这一次的计算结果作废
+                    if not state_tag[j][1] and current_frame_info[j].keys() != last_frame_info[j].keys():
+                        current_frame_info[j] = last_frame_info[j]
+                    if current_frame_info[j]:
+                        print(state_tag[j])
+                        print(current_frame_info[j])
+                        print(last_frame_info[j])
+                    # 计算当前帧车辆行驶状态
+                    state_tag[j][1] = is_car_move(current_frame_info[j], last_frame_info[j], h, w)
+                    if current_frame_info[j]:
+                        print(state_tag[j])
+                    # 保存相关数据，将当前数据结果保存给下一帧
+                    state_tag[j][0] = state_tag[j][1]
+                last_frame_info = current_frame_info
 
             # 获取离停止线最近的几个点（与车道数有关）
     # 判断停止线数量并对应做不同的处理：停止线大于四条说明有右转专用道
@@ -700,48 +737,48 @@ intersection_area = [[[0.4436492919921875, 0.2647569444444444], [0.4573211669921
                       [0.4133758544921875, 0.6970486111111112], [0.4065399169921875, 0.3932291666666667],
                       [0.4231414794921875, 0.3515625], [0.4075164794921875, 0.3116319444444444]]]
 
-# ---------------第二组测试数据---------------
-# 读取的txt数据
-txt_path = r'example\5.txt'
-# 底图图片
-image_path = r'example\5.jpg'
-# 超参
-threshold = 0.125
-min_cars = 5
-
-# 画面尺寸
-# w, h = (3810, 2160)
-
-mask = []  # 车道区域
-scale_line = [[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]]  # 比例尺线
-scale_length = 5 * 3.5  # 比例尺的实际尺寸，以m为单位
-entrance_areas = [[[0.4368133544921875, 0], [0.4368133544921875, 0.2482638888888889],
-                   [0.5149383544921875, 0.25], [0.5129852294921875, 0]],
-                  [[0.6838836669921875, 0.4565972222222222], [0.6838836669921875, 0.5677083333333334],
-                   [0.9973602294921875, 0.5763888888888888], [0.9963836669921875, 0.4739583333333333]],
-                  [[0.5276336669921875, 0.8125], [0.6125946044921875, 0.828125],
-                   [0.6155242919921875, 0.9930555555555556], [0.5276336669921875, 0.9965277777777778]],
-                  [[0.0002899169921875, 0.5347222222222222], [0.1321258544921875, 0.5225694444444444],
-                   [0.3791961669921875, 0.5434027777777778], [0.3762664794921875, 0.6527777777777778],
-                   [0.0017547607421875, 0.6145833333333334]]]  # 进口道区域
-entrance_lane_num = [[1, 0, 3, 0, 1], [1, 0, 3, 0, 1], [3, 0, 3, 0, 1], [1, 0, 2, 0, 2]]
-exit_areas = [[[0.5198211669921875, 0.8098958333333334], [0.4514617919921875, 0.7977430555555556],
-               [0.4524383544921875, 0.9956597222222222], [0.5256805419921875, 0.9973958333333334]],
-              [[0.6848602294921875, 0.5824652777777778], [0.6790008544921875, 0.6796875],
-               [0.9954071044921875, 0.7057291666666666], [0.9963836669921875, 0.6085069444444444]],
-              [[0.5247039794921875, 0.2526041666666667], [0.5989227294921875, 0.24913194444444445],
-               [0.5959930419921875, 0.0008680555555555555], [0.5188446044921875, 0.0008680555555555555]],
-              [[0.0012664794921875, 0.4105902777777778], [0.3850555419921875, 0.4296875],
-               [0.3791961669921875, 0.5303819444444444], [-0.0006866455078125, 0.5026041666666666]]]
-exit_lane_num = [[5, 0], [4, 0], [5, 0], [4, 0]]
-stop_lines = [[[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]],
-              [[0.6858367919921875, 0.421875], [0.6838836669921875, 0.5677083333333334]],
-              [[0.6223602294921875, 0.8263888888888888], [0.5256805419921875, 0.8107638888888888]],
-              [[0.3752899169921875, 0.6805555555555556], [0.3782196044921875, 0.5486111111111112]]]  # 停止线位置
-intersection_area = [[[0.4407196044921875, 0.2543402777777778], [0.3801727294921875, 0.3862847222222222],
-                      [0.3752899169921875, 0.6935763888888888], [0.4280242919921875, 0.7960069444444444],
-                      [0.6311492919921875, 0.8272569444444444], [0.6838836669921875, 0.7421875],
-                      [0.6848602294921875, 0.3845486111111111], [0.6096649169921875, 0.2560763888888889]]]
+# # ---------------第二组测试数据---------------
+# # 读取的txt数据
+# txt_path = r'example\5.txt'
+# # 底图图片
+# image_path = r'example\5.jpg'
+# # 超参
+# threshold = 0.125
+# min_cars = 5
+#
+# # 画面尺寸
+# # w, h = (3810, 2160)
+#
+# mask = []  # 车道区域
+# scale_line = [[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]]  # 比例尺线
+# scale_length = 5 * 3.5  # 比例尺的实际尺寸，以m为单位
+# entrance_areas = [[[0.4368133544921875, 0], [0.4368133544921875, 0.2482638888888889],
+#                    [0.5149383544921875, 0.25], [0.5129852294921875, 0]],
+#                   [[0.6838836669921875, 0.4565972222222222], [0.6838836669921875, 0.5677083333333334],
+#                    [0.9973602294921875, 0.5763888888888888], [0.9963836669921875, 0.4739583333333333]],
+#                   [[0.5276336669921875, 0.8125], [0.6125946044921875, 0.828125],
+#                    [0.6155242919921875, 0.9930555555555556], [0.5276336669921875, 0.9965277777777778]],
+#                   [[0.0002899169921875, 0.5347222222222222], [0.1321258544921875, 0.5225694444444444],
+#                    [0.3791961669921875, 0.5434027777777778], [0.3762664794921875, 0.6527777777777778],
+#                    [0.0017547607421875, 0.6145833333333334]]]  # 进口道区域
+# entrance_lane_num = [[1, 0, 3, 0, 1], [1, 0, 3, 0, 1], [3, 0, 3, 0, 1], [1, 0, 2, 0, 2]]
+# exit_areas = [[[0.5198211669921875, 0.8098958333333334], [0.4514617919921875, 0.7977430555555556],
+#                [0.4524383544921875, 0.9956597222222222], [0.5256805419921875, 0.9973958333333334]],
+#               [[0.6848602294921875, 0.5824652777777778], [0.6790008544921875, 0.6796875],
+#                [0.9954071044921875, 0.7057291666666666], [0.9963836669921875, 0.6085069444444444]],
+#               [[0.5247039794921875, 0.2526041666666667], [0.5989227294921875, 0.24913194444444445],
+#                [0.5959930419921875, 0.0008680555555555555], [0.5188446044921875, 0.0008680555555555555]],
+#               [[0.0012664794921875, 0.4105902777777778], [0.3850555419921875, 0.4296875],
+#                [0.3791961669921875, 0.5303819444444444], [-0.0006866455078125, 0.5026041666666666]]]
+# exit_lane_num = [[5, 0], [4, 0], [5, 0], [4, 0]]
+# stop_lines = [[[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]],
+#               [[0.6858367919921875, 0.421875], [0.6838836669921875, 0.5677083333333334]],
+#               [[0.6223602294921875, 0.8263888888888888], [0.5256805419921875, 0.8107638888888888]],
+#               [[0.3752899169921875, 0.6805555555555556], [0.3782196044921875, 0.5486111111111112]]]  # 停止线位置
+# intersection_area = [[[0.4407196044921875, 0.2543402777777778], [0.3801727294921875, 0.3862847222222222],
+#                       [0.3752899169921875, 0.6935763888888888], [0.4280242919921875, 0.7960069444444444],
+#                       [0.6311492919921875, 0.8272569444444444], [0.6838836669921875, 0.7421875],
+#                       [0.6848602294921875, 0.3845486111111111], [0.6096649169921875, 0.2560763888888889]]]
 
 # ==================================================================
 # ============================数据处理===============================
