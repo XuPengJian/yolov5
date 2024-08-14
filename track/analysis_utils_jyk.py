@@ -307,7 +307,7 @@ def is_car_move(current_frame_info, last_frame_info, h, w):
             # 几个点中任意一点移动范围小于阈值，即判断为静止
             # 做了各几帧算的处理，阈值可以设高点，避免因为非行驶方向上的较大震荡造成了错误判断
             if remove_duplicates(last_frame_info[key][0], current_frame_info[key][0],
-                                 x_tolerance=0.002 * w, y_tolerance=0.003 * h):
+                                 x_tolerance=0.001 * w, y_tolerance=0.0015 * h):
                 state = False
     return state
 
@@ -593,9 +593,11 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                                              mid_point, pt_to_line_distance, each_car)
 
                     elif '右转' in each_car['direction_cls']:
-                        # 有右转专用道时
+                        # 有右转专用道时，计算距离用中点计算，不用点到线段的距离
                         if len(area_lines[i]) > 1:
-                            pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][1])
+                            line_x_center = (float(area_lines[i][1][0][0]) + float(area_lines[i][1][1][0])) / 2
+                            line_y_center = (float(area_lines[i][1][0][1]) + float(area_lines[i][1][1][1])) / 2
+                            pt_to_line_distance = calculate_distance(mid_point, [line_x_center, line_y_center])
                         # 无右转专用道时，停止线通用
                         else:
                             pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
