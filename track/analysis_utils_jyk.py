@@ -290,8 +290,8 @@ def calculate_mask_to_line(entrance_areas, stop_segments, h, w):
 
 def remove_duplicates(pt1, pt2, x_tolerance=0.001, y_tolerance=0.0015):
     # 检查前后两帧的点是否接近重合
-    if abs(pt1[0] - pt2[0]) > x_tolerance or abs(pt1[1] - pt2[1]) > y_tolerance:
-        # 两点距离大于阈值则判断为不重合
+    if abs(pt1[0] - pt2[0]) < x_tolerance and abs(pt1[1] - pt2[1]) < y_tolerance:
+        # 两点距离小于阈值则判断为重合
         return True
     else:
         return False
@@ -303,12 +303,12 @@ def is_car_move(current_frame_info, last_frame_info, h, w):
     # 当车辆存在，且前后两帧中距离停止线距离最小的车辆相同，则开始判断是否重合
     # 判断前先排序
     if current_frame_info and sorted(current_frame_info.keys()) == sorted(last_frame_info.keys()):
-        state = False
         for key in last_frame_info:
-            # 几个点中任意一点移动范围超过阈值，即判断为移动
+            # 几个点中任意一点移动范围小于阈值，即判断为静止
+            # 做了各几帧算的处理，阈值可以设高点，避免因为非行驶方向上的较大震荡造成了错误判断
             if remove_duplicates(last_frame_info[key][0], current_frame_info[key][0],
-                                 x_tolerance=0.001 * h, y_tolerance=0.0015 * w):
-                state = True
+                                 x_tolerance=0.002 * w, y_tolerance=0.003 * h):
+                state = False
     return state
 
 
@@ -563,16 +563,22 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                     # 那么这一次新的值用上一次的来赋值，也就是这一次的计算结果作废
                     if not state_tag[j][1] and current_frame_info[j].keys() != last_frame_info[j].keys():
                         current_frame_info[j] = last_frame_info[j]
+                    # 保存相关数据，将当前数据结果保存给下一帧
+                    state_tag[j][0] = state_tag[j][1]
                     if current_frame_info[j]:
                         print(state_tag[j])
                         print(current_frame_info[j])
                         print(last_frame_info[j])
                     # 计算当前帧车辆行驶状态
                     state_tag[j][1] = is_car_move(current_frame_info[j], last_frame_info[j], h, w)
+                    # TODO:计算需要——最远的n辆车，轨迹序号
+                    # 修改为只要经过对比当前帧与上一帧车辆数据后，判断状态为静止（False），则用上一帧数据表示当前帧数据
+                    # 用于避免车辆行驶缓慢的情况：
+                    # 由于车辆刚启动，有可能前后两帧只移动1像素点，也就是不超过判断为移动的阈值，用该方法来实现计算隔几帧的位置
+                    if sorted(current_frame_info[j].keys()) == sorted(last_frame_info[j].keys()):
+                        current_frame_info[j] = last_frame_info[j]
                     if current_frame_info[j]:
                         print(state_tag[j])
-                    # 保存相关数据，将当前数据结果保存给下一帧
-                    state_tag[j][0] = state_tag[j][1]
                 last_frame_info = current_frame_info
 
             # 获取离停止线最近的几个点（与车道数有关）
