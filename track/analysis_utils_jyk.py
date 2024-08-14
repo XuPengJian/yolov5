@@ -509,10 +509,14 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                               entrance_lane_num[i][4] + entrance_lane_num[i][3]]
             # 记录车辆位置的状态，True表示位置变化，False表示不变，[0]保存上一帧的变化,[1]记录当前帧的变化
             state_tag = [[True, True], [True, True], [True, True]]
+            # 存储所有类别，按照左转、直行、右转的顺序
+            all_cls = [[] for _ in range(3)]
             # 每一帧的所有车
             # print('-------------------------------------------------')
             # 存储每一帧离停止线距离最近的车辆（车道数为多少就存储多少辆），用于与下一帧做对比，若位置由不变到变，则判断为转为绿灯，进入计算
             current_frame_info = [{}, {}, {}]
+            # 存储每一帧离停止线距离最远的车辆（车道数为多少就存储多少辆），用于判断车流静止转运动时计算排队长度
+            current_farthest_car = [{}, {}, {}]
             for frame, each_frame_cars in each_area_cars.items():
                 # 最开始初始化一个空值，之后就不能用空值覆盖了
                 if all(not item for item in current_frame_info):
@@ -525,13 +529,16 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                     if '直行' in each_car['direction_cls']:
                         # 计算到停止线的距离
                         pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
-                        # 填入与车道数相同数量的车，存储信息包括在画面中的位置（中点）和到停止线的距离
+                        # 统计车辆轨迹类别
+                        if each_car['track_cls'] not in all_cls[1]:
+                            all_cls[1].append(each_car['track_cls'])
+                        # 填入与车道数相同数量的距离最近的车，存储信息包括在画面中的位置（中点）和到停止线的距离
                         if len(current_frame_info[1]) < lanes_num_list[1]:
                             current_frame_info[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
                             # print(current_frame_info)
                         # 已填满对应数量的车时，对比是否有更小的值，有则替换
                         else:
-                            # 先进行排序，满足距离从大到小，以便后续的查找替换
+                            # 先进行排序，满足距离从大到小（reverse为True为降序排序），以便后续的查找替换
                             # 使用 sorted() 函数和自定义 key 进行排序
                             sorted_items = sorted(current_frame_info[1].items(), key=lambda item: item[1][1], reverse=True)
                             # 将排序后的项转换回字典
@@ -543,6 +550,20 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                                     current_frame_info[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
                                     # print('old', last_frame_info)
                                     # print(current_frame_info)
+                                    break
+                        if len(current_farthest_car[1]) < lanes_num_list[1]:
+                            current_farthest_car[1][each_car['id']] = pt_to_line_distance
+                            print(current_farthest_car[1])
+                        else:
+                            # 使用 min 函数找到最小 value 对应的 key
+                            min_key = min(current_farthest_car[1], key=lambda k: current_farthest_car[1][k])
+                            for car_id, location in current_farthest_car[1].items():
+                                # 距离最小值对应的id，需要删除时删这个
+                                del_id = car_id
+                                # 出现距离更小的值，删除原值并替换
+                                if pt_to_line_distance > location and each_car['id'] not in current_farthest_car[1]:
+                                    del current_farthest_car[1][min_key]
+                                    current_farthest_car[1][each_car['id']] = pt_to_line_distance
                                     break
 
                     elif '右转' in each_car['direction_cls']:
@@ -575,7 +596,7 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                     # 修改为只要经过对比当前帧与上一帧车辆数据后，判断状态为静止（False），则用上一帧数据表示当前帧数据
                     # 用于避免车辆行驶缓慢的情况：
                     # 由于车辆刚启动，有可能前后两帧只移动1像素点，也就是不超过判断为移动的阈值，用该方法来实现计算隔几帧的位置
-                    if sorted(current_frame_info[j].keys()) == sorted(last_frame_info[j].keys()):
+                    if not state_tag[j][1]:
                         current_frame_info[j] = last_frame_info[j]
                     if current_frame_info[j]:
                         print(state_tag[j])
