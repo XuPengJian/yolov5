@@ -515,13 +515,13 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
             # print('-------------------------------------------------')
             # 存储每一帧离停止线距离最近的车辆（车道数为多少就存储多少辆），用于与下一帧做对比，若位置由不变到变，则判断为转为绿灯，进入计算
             current_frame_info = [{}, {}, {}]
-            # 存储每一帧离停止线距离最远的车辆（车道数为多少就存储多少辆），用于判断车流静止转运动时计算排队长度
-            current_farthest_car = [{}, {}, {}]
             for frame, each_frame_cars in each_area_cars.items():
                 # 最开始初始化一个空值，之后就不能用空值覆盖了
                 if all(not item for item in current_frame_info):
                     last_frame_info = current_frame_info
                 current_frame_info = [{}, {}, {}]
+                # 存储每一帧离停止线距离最远的车辆（车道数为多少就存储多少辆），用于判断车流静止转运动时计算排队长度
+                current_farthest_car = [{}, {}, {}]
                 # 当前帧下的每一辆车
                 for each_car in each_frame_cars:
                     # 计算检测框的中点
@@ -538,28 +538,23 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                             # print(current_frame_info)
                         # 已填满对应数量的车时，对比是否有更小的值，有则替换
                         else:
-                            # 先进行排序，满足距离从大到小（reverse为True为降序排序），以便后续的查找替换
-                            # 使用 sorted() 函数和自定义 key 进行排序
-                            sorted_items = sorted(current_frame_info[1].items(), key=lambda item: item[1][1], reverse=True)
-                            # 将排序后的项转换回字典
-                            current_frame_info[1] = {key: value for key, value in sorted_items}
+                            # 使用 max 函数找到最大距离对应的 key，比较出现有更小的值时删除这个最大值
+                            max_key = max(current_frame_info[1], key=lambda k: current_frame_info[1][k][1])
                             for car_id, location in current_frame_info[1].items():
                                 # 出现距离更小的值，删除原值并替换
                                 if pt_to_line_distance < location[1] and each_car['id'] not in current_frame_info[1]:
-                                    del current_frame_info[1][car_id]
+                                    del current_frame_info[1][max_key]
                                     current_frame_info[1][each_car['id']] = [mid_point, pt_to_line_distance, each_car['frame']]
                                     # print('old', last_frame_info)
                                     # print(current_frame_info)
                                     break
                         if len(current_farthest_car[1]) < lanes_num_list[1]:
                             current_farthest_car[1][each_car['id']] = pt_to_line_distance
-                            print(current_farthest_car[1])
+                            # print(current_farthest_car[1])
                         else:
-                            # 使用 min 函数找到最小 value 对应的 key
+                            # 使用 min 函数找到最小 value 对应的 key，比较出现有更大的值时删除这个最小的
                             min_key = min(current_farthest_car[1], key=lambda k: current_farthest_car[1][k])
                             for car_id, location in current_farthest_car[1].items():
-                                # 距离最小值对应的id，需要删除时删这个
-                                del_id = car_id
                                 # 出现距离更小的值，删除原值并替换
                                 if pt_to_line_distance > location and each_car['id'] not in current_farthest_car[1]:
                                     del current_farthest_car[1][min_key]
