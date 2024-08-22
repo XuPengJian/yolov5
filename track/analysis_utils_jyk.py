@@ -307,10 +307,9 @@ def is_car_move(current_frame_info, last_frame_info, state, h, w):
         for key in last_frame_info:
             # 几个点中任意一点移动范围小于阈值，即判断为静止
             # 做了各几帧算的处理，阈值可以设高点，避免因为非行驶方向上的较大震荡造成了错误判断
-            # TODO:车辆大部分都是起步，速度较慢，阈值设低了可能检测不到震荡，
-            #  阈值设高了容易检测不到车辆行驶状态，因为可能行驶状态时车辆由于刚起步也可能就移动一两个像素
+            # TODO：5秒识别一次阈值如何判断合适
             if remove_duplicates(last_frame_info[key][0], current_frame_info[key][0],
-                                 x_tolerance=0.001 * w, y_tolerance=0.0015 * h):
+                                 x_tolerance=0.002 * w, y_tolerance=0.003 * h):
                 state = False
     return state
 
@@ -576,53 +575,57 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
             # 存储每一帧离停止线距离最近的车辆（车道数为多少就存储多少辆），用于与下一帧做对比，若位置由不变到变，则判断为转为绿灯，进入计算
             current_frame_info = [{}, {}, {}]
             for frame, each_frame_cars in each_area_cars.items():
-                # 最开始初始化一个空值，之后就不能用空值覆盖了
-                if all(not item for item in current_frame_info):
-                    last_frame_info = current_frame_info
-                current_frame_info = [{}, {}, {}]
-                # 存储每一帧离停止线距离最远的车辆（车道数为多少就存储多少辆），用于判断车流静止转运动时计算排队长度
-                current_farthest_car = [{}, {}, {}]
-                # 当前帧下的每一辆车
-                for each_car in each_frame_cars:
-                    # 计算检测框的中点
-                    mid_point = calculate_midpoint(each_car)
-                    if '直行' in each_car['direction_cls']:
-                        # 计算到停止线的距离
-                        pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
-                        # 统计车辆轨迹类别
-                        if each_car['track_cls'] not in all_cls[1]:
-                            all_cls[1].append(each_car['track_cls'])
-                        # 计算距离最短与距离最长的车
-                        current_frame_info[1], current_farthest_car[1] = \
-                            get_2_stage_cars(current_frame_info[1], current_farthest_car[1], lanes_num_list[1],
-                                             mid_point, pt_to_line_distance, each_car)
+                # 跳帧：先用每5秒取一帧
+                jump_second = 5
+                jump_num = jump_second * 30 / 2
+                if frame % jump_num == 0:
+                    # 最开始初始化一个空值，之后就不能用空值覆盖了
+                    if all(not item for item in current_frame_info):
+                        last_frame_info = current_frame_info
+                    current_frame_info = [{}, {}, {}]
+                    # 存储每一帧离停止线距离最远的车辆（车道数为多少就存储多少辆），用于判断车流静止转运动时计算排队长度
+                    current_farthest_car = [{}, {}, {}]
+                    # 当前帧下的每一辆车
+                    for each_car in each_frame_cars:
+                        # 计算检测框的中点
+                        mid_point = calculate_midpoint(each_car)
+                        if '直行' in each_car['direction_cls']:
+                            # 计算到停止线的距离
+                            pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
+                            # 统计车辆轨迹类别
+                            if each_car['track_cls'] not in all_cls[1]:
+                                all_cls[1].append(each_car['track_cls'])
+                            # 计算距离最短与距离最长的车
+                            current_frame_info[1], current_farthest_car[1] = \
+                                get_2_stage_cars(current_frame_info[1], current_farthest_car[1], lanes_num_list[1],
+                                                 mid_point, pt_to_line_distance, each_car)
 
-                    elif '右转' in each_car['direction_cls']:
-                        # 有右转专用道时，计算距离用中点计算，不用点到线段的距离
-                        if len(area_lines[i]) > 1:
-                            line_x_center = (float(area_lines[i][1][0][0]) + float(area_lines[i][1][1][0])) / 2
-                            line_y_center = (float(area_lines[i][1][0][1]) + float(area_lines[i][1][1][1])) / 2
-                            pt_to_line_distance = calculate_distance(mid_point, [line_x_center, line_y_center])
-                        # 无右转专用道时，停止线通用
+                        elif '右转' in each_car['direction_cls']:
+                            # 有右转专用道时，计算距离用中点计算，不用点到线段的距离
+                            if len(area_lines[i]) > 1:
+                                line_x_center = (float(area_lines[i][1][0][0]) + float(area_lines[i][1][1][0])) / 2
+                                line_y_center = (float(area_lines[i][1][0][1]) + float(area_lines[i][1][1][1])) / 2
+                                pt_to_line_distance = calculate_distance(mid_point, [line_x_center, line_y_center])
+                            # 无右转专用道时，停止线通用
+                            else:
+                                pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
+                            # 统计车辆轨迹类别
+                            if each_car['track_cls'] not in all_cls[2]:
+                                all_cls[2].append(each_car['track_cls'])
+                            # 计算距离最短与距离最长的车
+                            current_frame_info[2], current_farthest_car[2] = \
+                                get_2_stage_cars(current_frame_info[2], current_farthest_car[2], lanes_num_list[2],
+                                                 mid_point, pt_to_line_distance, each_car)
+                        # 左转和掉头
                         else:
                             pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
-                        # 统计车辆轨迹类别
-                        if each_car['track_cls'] not in all_cls[2]:
-                            all_cls[2].append(each_car['track_cls'])
-                        # 计算距离最短与距离最长的车
-                        current_frame_info[2], current_farthest_car[2] = \
-                            get_2_stage_cars(current_frame_info[2], current_farthest_car[2], lanes_num_list[2],
-                                             mid_point, pt_to_line_distance, each_car)
-                    # 左转和掉头
-                    else:
-                        pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
-                        # 统计车辆轨迹类别
-                        if each_car['track_cls'] not in all_cls[0]:
-                            all_cls[0].append(each_car['track_cls'])
-                        # 计算距离最短与距离最长的车
-                        current_frame_info[0], current_farthest_car[0] = \
-                            get_2_stage_cars(current_frame_info[0], current_farthest_car[0], lanes_num_list[0],
-                                             mid_point, pt_to_line_distance, each_car)
+                            # 统计车辆轨迹类别
+                            if each_car['track_cls'] not in all_cls[0]:
+                                all_cls[0].append(each_car['track_cls'])
+                            # 计算距离最短与距离最长的车
+                            current_frame_info[0], current_farthest_car[0] = \
+                                get_2_stage_cars(current_frame_info[0], current_farthest_car[0], lanes_num_list[0],
+                                                 mid_point, pt_to_line_distance, each_car)
 
                 # print('对比', lanes_num_list[1])
                 # print(last_frame_info)
