@@ -316,7 +316,11 @@ def is_car_move(current_frame_info, last_frame_info, state, h, w):
 
 def get_2_stage_cars(current_frame_info, current_farthest_car, lanes_num, mid_point,
                      pt_to_line_distance, each_car_info):
-
+    # TODO:步骤1：计算距离最长的n辆车，若出现新的——加入dict1（dict1不限长度）
+    #   步骤2：判断这辆车是否静止，用dict1中出现过的id进行判断，并将该id的新值替换进dict1
+    #   （修改is_car_move函数，把针对一条道的修改为针对一辆车的识别）
+    #   步骤3：静止则加入待计算列表中（dict2长度为n，按照原逻辑有新的更长的就替换）
+    #   步骤4：（最后的）用最长的n辆车计算
     # 填入与车道数相同数量的距离最近的车，存储信息包括在画面中的位置（中点）和到停止线的距离
     if len(current_frame_info) < lanes_num:
         current_frame_info[each_car_info['id']] = [mid_point, pt_to_line_distance, each_car_info['frame']]
@@ -630,66 +634,61 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                 # print('对比', lanes_num_list[1])
                 # print(last_frame_info)
                 # print(current_frame_info)
-                for j in range(len(current_frame_info)):
-                    # TODO:对上一帧是静止状态但原本距离最近的车辆在当前帧消失了，有两种情况:
-                    """
-                    1.车辆信息丢失，突然有一帧或几帧没识别到——这种情况对应的处理方法是要保存该消失车辆信息，直到下次出现将有用的数据替换回来继续计算
-                    处理方法：这一次新的值用上一次的来赋值，也就是这一次的没识别到的错误计算结果作废
-                    2.比如原本是2车道，存储两辆车，存储的就是在1车道上最近的两辆，2车道上没车，后续2车道上行驶进一辆车，
-                     识别到的最近车辆为12车道各一辆，也会导致车流状态没有从静止转为行驶但车辆信息消失
-                     由于是真实数据，旧的最近车辆数据确实应该被替换，若使用和1一样的处理方法，会导致车辆数据一直不会被替换回来
-                    """
-                    # 处理出现某一帧没识别到的情况，比如明明上一次是静止状态(False)这一次有一辆车就消失了是不合理的应该是没检测到，
-                    # 那么
-                    # if not state_tag[j][1] and sorted(current_frame_info[j].keys()) != sorted(last_frame_info[j].keys()):
-                    #     current_frame_info[j] = last_frame_info[j]
-                    # 保存相关数据，将当前数据结果保存给下一帧
-                    state_tag[j][0] = state_tag[j][1]
-                    # if current_frame_info[j]:
-                    #     print(state_tag[j])
-                    #     print(current_frame_info[j])
-                    #     print(last_frame_info[j])
-                    # if 2 in all_cls[j] or 7 in all_cls[j]:
-                    #     print(state_tag[j])
-                    # 计算当前帧车辆行驶状态
-                    state_tag[j][1] = is_car_move(current_frame_info[j], last_frame_info[j], state_tag[j][1], h, w)
-                    # 判断并进行排队长度的计算，当车流状态为由静止到运动时认为是红灯转绿灯，即False, True
-                    if state_tag[j] == [False, True]:
-                        print(all_cls[j])
-                        print(current_frame_info[j])
-                        print(last_frame_info[j])
-                        length = calculate_traj_queue_length(lanes_num_list[j], current_farthest_car[j], length_per_pixel)
-                        for cls in all_cls[j]:
-                            if cls not in queue_length_dict:
-                                queue_length_dict[cls] = length
-                    # 修改为只要经过对比当前帧与上一帧车辆数据后，判断状态为静止（False），则用上一帧数据表示当前帧数据
-                    # 用于避免车辆行驶缓慢的情况：
-                    # 由于车辆刚启动，有可能前后两帧只移动1像素点，也就是不超过判断为移动的阈值，用该方法来实现计算隔几帧的位置
-                    # if 2 in all_cls[j] or 7 in all_cls[j]:
-                    #     print(all_cls[j], state_tag[j])
-                    #     print(current_frame_info[j])
-                    #     print(last_frame_info[j])
-                    if not state_tag[j][1] and sorted(current_frame_info[j].keys()) == sorted(last_frame_info[j].keys()):
-                        current_frame_info[j] = last_frame_info[j]
-                    # if current_frame_info[j]:
-                    #     print(state_tag[j])
-                last_frame_info = current_frame_info
+    #             for j in range(len(current_frame_info)):
+    #                 # TODO:对上一帧是静止状态但原本距离最近的车辆在当前帧消失了，有两种情况:
+    #                 """
+    #                 1.车辆信息丢失，突然有一帧或几帧没识别到——这种情况对应的处理方法是要保存该消失车辆信息，直到下次出现将有用的数据替换回来继续计算
+    #                 处理方法：这一次新的值用上一次的来赋值，也就是这一次的没识别到的错误计算结果作废
+    #                 2.比如原本是2车道，存储两辆车，存储的就是在1车道上最近的两辆，2车道上没车，后续2车道上行驶进一辆车，
+    #                  识别到的最近车辆为12车道各一辆，也会导致车流状态没有从静止转为行驶但车辆信息消失
+    #                  由于是真实数据，旧的最近车辆数据确实应该被替换，若使用和1一样的处理方法，会导致车辆数据一直不会被替换回来
+    #                 """
+    #                 # 处理出现某一帧没识别到的情况，比如明明上一次是静止状态(False)这一次有一辆车就消失了是不合理的应该是没检测到，
+    #                 # 那么
+    #                 # if not state_tag[j][1] and sorted(current_frame_info[j].keys()) != sorted(last_frame_info[j].keys()):
+    #                 #     current_frame_info[j] = last_frame_info[j]
+    #                 # 保存相关数据，将当前数据结果保存给下一帧
+    #                 state_tag[j][0] = state_tag[j][1]
+    #                 # if current_frame_info[j]:
+    #                 #     print(state_tag[j])
+    #                 #     print(current_frame_info[j])
+    #                 #     print(last_frame_info[j])
+    #                 # if 2 in all_cls[j] or 7 in all_cls[j]:
+    #                 #     print(state_tag[j])
+    #                 # 计算当前帧车辆行驶状态
+    #                 state_tag[j][1] = is_car_move(current_frame_info[j], last_frame_info[j], state_tag[j][1], h, w)
+    #                 # 判断并进行排队长度的计算，当车流状态为由静止到运动时认为是红灯转绿灯，即False, True
+    #                 if state_tag[j] == [False, True]:
+    #                     print(all_cls[j])
+    #                     print(current_frame_info[j])
+    #                     print(last_frame_info[j])
+    #                     length = calculate_traj_queue_length(lanes_num_list[j], current_farthest_car[j], length_per_pixel)
+    #                     for cls in all_cls[j]:
+    #                         if cls not in queue_length_dict:
+    #                             queue_length_dict[cls] = length
+    #                 # 修改为只要经过对比当前帧与上一帧车辆数据后，判断状态为静止（False），则用上一帧数据表示当前帧数据
+    #                 # 用于避免车辆行驶缓慢的情况：
+    #                 # 由于车辆刚启动，有可能前后两帧只移动1像素点，也就是不超过判断为移动的阈值，用该方法来实现计算隔几帧的位置
+    #                 # if 2 in all_cls[j] or 7 in all_cls[j]:
+    #                 #     print(all_cls[j], state_tag[j])
+    #                 #     print(current_frame_info[j])
+    #                 #     print(last_frame_info[j])
+    #                 if not state_tag[j][1] and sorted(current_frame_info[j].keys()) == sorted(last_frame_info[j].keys()):
+    #                     current_frame_info[j] = last_frame_info[j]
+    #                 # if current_frame_info[j]:
+    #                 #     print(state_tag[j])
+    #             last_frame_info = current_frame_info
+    #
+    #         # 当前mask所有计算结束后的数据补充，没有计算到对应值的轨迹返回None
+    #         for k, cls_list in enumerate(all_cls):
+    #             # 先判断是否有数据
+    #             if len(cls_list) != 0:
+    #                 for cls in cls_list:
+    #                     if cls not in queue_length_dict:
+    #                         queue_length_dict[cls] = None
+    #
+    # print(queue_length_dict)
 
-            # 当前mask所有计算结束后的数据补充，没有计算到对应值的轨迹返回None
-            for k, cls_list in enumerate(all_cls):
-                # 先判断是否有数据
-                if len(cls_list) != 0:
-                    for cls in cls_list:
-                        if cls not in queue_length_dict:
-                            queue_length_dict[cls] = None
-
-    print(queue_length_dict)
-
-    # 获取离停止线最近的几个点（与车道数有关）
-    # 判断停止线数量并对应做不同的处理：停止线大于四条说明有右转专用道
-    # 用点到线的距离判断对应停止线是哪条
-    # 有右转专用道时，右转与直行对应的停止线距离可能差不多，无法单纯用距离判断，取距离最短的两条根据轨迹类型分，较长的为直行对应停止线
-    # 无右转专用道时，直接取距离最短的线作为停止线
     pass
 
 
