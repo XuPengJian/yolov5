@@ -288,8 +288,8 @@ def calculate_mask_to_line(entrance_areas, stop_segments, h, w):
     return area_lines
 
 
-def remove_duplicates(pt1, pt2, x_tolerance=0.001, y_tolerance=0.0015):
-    # 检查前后两帧的点是否接近重合
+def is_car_stop(pt1, pt2, x_tolerance=0.001, y_tolerance=0.0015):
+    # 车辆当前数据与存储的上一次的数据对比，判断两次中点是否在阈值内趋于重合
     if abs(pt1[0] - pt2[0]) < x_tolerance and abs(pt1[1] - pt2[1]) < y_tolerance:
         # 两点距离小于阈值则判断为重合
         return True
@@ -297,31 +297,16 @@ def remove_duplicates(pt1, pt2, x_tolerance=0.001, y_tolerance=0.0015):
         return False
 
 
-# 判断车流是否为行进状态（绿灯）
-def is_car_move(current_frame_info, last_frame_info, state, h, w):
-    # state = True
-    # 当车辆存在，且前后两帧中距离停止线距离最小的车辆相同，则开始判断是否重合
-    # 判断前先排序
-    if current_frame_info and sorted(current_frame_info.keys()) == sorted(last_frame_info.keys()):
-        state = True
-        for key in last_frame_info:
-            # 几个点中任意一点移动范围小于阈值，即判断为静止
-            # 做了各几帧算的处理，阈值可以设高点，避免因为非行驶方向上的较大震荡造成了错误判断
-            # TODO：5秒识别一次阈值如何判断合适
-            if remove_duplicates(last_frame_info[key][0], current_frame_info[key][0],
-                                 x_tolerance=0.002 * w, y_tolerance=0.003 * h):
-                state = False
-    return state
-
-
 def get_2_stage_cars(further_car_dict, stop_car_dict, lanes_num, mid_point,
-                     pt_to_line_distance, each_car_info):
+                     pt_to_line_distance, each_car_info, h, w):
     # TODO:有没有更长的（对比dict2）——有没有出现过（dict1）——是不是静止（对比dict1）——替换dict2——用dict2判断有没有行驶
     #   步骤1：计算距离最长的n辆车，若出现新的——加入dict1（dict1不限长度）
     #   步骤2：判断这辆车是否静止，用dict1中出现过的id进行判断，并将该id的新值替换进dict1
     #   （修改is_car_move函数，把针对一条道的修改为针对一辆车的识别）
     #   步骤3：静止则加入待计算列表中（dict2长度为n，按照原逻辑有新的更长的就替换）
     #   步骤4：（最后的）用最长的n辆车计算
+    # print(further_car_dict)
+    # print(each_car_info['id'], mid_point, pt_to_line_distance)
     # 填入与车道数相同数量的距离最近的车，存储信息包括在画面中的位置（中点）和到停止线的距离
     # 定义布尔值存储该车是否比原有车辆距离更长
     is_further = False
@@ -332,47 +317,21 @@ def get_2_stage_cars(further_car_dict, stop_car_dict, lanes_num, mid_point,
             break
     # 存储最远停止车辆的变量还没满（没到车道数），或满了但比原有距离长时
     if len(stop_car_dict) < lanes_num or is_further:
-        # 没有出现过则添加进字典中
-        if each_car_info['id'] not in further_car_dict:
-            further_car_dict[each_car_info['id']] = [mid_point, pt_to_line_distance, each_car_info['frame']]
+        # print(each_car_info['frame'], further_car_dict.keys(), each_car_info['id'])
         # 对出现过的车判断是不是静止
-    #     else:
-    #         print(pt_to_line_distance, further_car_dict[each_car_info['id']][1])
-    #     current_frame_info[each_car_info['id']] = [mid_point, pt_to_line_distance, each_car_info['frame']]
-    #     # 使用 min 函数找到最小 value 对应的 key，比较出现有更大的值时删除这个最小的
-    #     min_key = min(stop_car_dict, key=lambda k: stop_car_dict[k])
-    # if each_car_info['id'] not in further_car_dict:
-    #     further_car_dict[each_car_info['id']] = [mid_point, pt_to_line_distance, each_car_info['frame']]
-        # print(current_frame_info)
-    # 已填满对应数量的车时，对比是否有更小的值，有则替换
-    else:
-        # 使用 max 函数找到最大距离对应的 key，比较出现有更小的值时删除这个最大值
-        max_key = max(current_frame_info, key=lambda k: current_frame_info[k][1])
-        for car_id, location in current_frame_info.items():
-            # 出现距离更小的值，删除原值并替换
-            if pt_to_line_distance < location[1] and each_car_info['id'] not in current_frame_info:
-                del current_frame_info[max_key]
-                current_frame_info[each_car_info['id']] = [mid_point, pt_to_line_distance, each_car_info['frame']]
-                # print('old', last_frame_info)
-                # print(current_frame_info)
-                break
-
-    if len(current_farthest_car) < lanes_num:
-        current_farthest_car[each_car_info['id']] = pt_to_line_distance
-        # print(current_farthest_car)
-    else:
-        # 使用 min 函数找到最小 value 对应的 key，比较出现有更大的值时删除这个最小的
-        min_key = min(current_farthest_car, key=lambda k: current_farthest_car[k])
-        for car_id, location in current_farthest_car.items():
-            # 出现距离更小的值，删除原值并替换
-            if pt_to_line_distance > location and each_car_info['id'] not in current_farthest_car:
-                del current_farthest_car[min_key]
-                current_farthest_car[each_car_info['id']] = pt_to_line_distance
-                break
-    # if each_car_info['track_cls'] == 2 or each_car_info['track_cls'] == 7:
-    #     print(current_frame_info, current_farthest_car)
-
-    return further_car_dict, stop_car_dict
+        if each_car_info['id'] in further_car_dict:
+            # # 判断车辆是否为停止状态
+            # if is_car_stop():
+            if is_car_stop(mid_point, further_car_dict[each_car_info['id']][0],
+                           x_tolerance=0.002 * w, y_tolerance=0.003 * h):
+                # 有距离更远的车辆处于静止状态，则将其到停止线的距离添加进存储停止车辆的列表
+                stop_car_dict[each_car_info['id']] = pt_to_line_distance
+                if len(stop_car_dict) > lanes_num:
+                    # 使用 min 函数找到最小 value 对应的 key，加入距离更大的值后，总数超出车道数量时删除这个最小的
+                    min_key = min(stop_car_dict, key=lambda k: stop_car_dict[k])
+                    del stop_car_dict[min_key]
+        # 没有出现过则添加进字典中，出现过则覆盖，保证further_car_dict中是最新的信息（需要对比的旧数据前面用完不需要了就覆盖掉）
+        further_car_dict[each_car_info['id']] = [mid_point, pt_to_line_distance, each_car_info['frame']]
 
 
 # 计算排队长度
@@ -595,14 +554,17 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
             all_cls = [[] for _ in range(3)]
             # 每一帧的所有车
             # print('-------------------------------------------------')
+            # 存储最远的车，出现距离更远的车辆就写入，每获取到新一帧的数据，将已存在的车辆信息替换
+            further_car_info = [{}, {}, {}]
+            stop_car_info = [{}, {}, {}]
             for frame, each_frame_cars in each_area_cars.items():
                 # 跳帧：先用每5秒取一帧
-                jump_second = 5
+                jump_second = 3
                 jump_num = jump_second * 30 / 2
                 if frame % jump_num == 0:
-                    # 存储最远的车，出现距离更远的车辆就写入，每获取到新一帧的数据，将已存在的车辆信息替换
-                    further_car_info = [{}, {}, {}]
-                    # 存储离停止线距离最远的车辆，数量与车道数相等，先判断是否静止再写入
+                    # 最开始初始化一个空值，之后用的就是上一次算出来的停止车辆
+                    last_stop_dict = stop_car_info
+                    # 存储离停止线距离最远的车辆，数量与车道数相等，先判断是否静止再写入，每次读取新一帧重新初始化
                     stop_car_info = [{}, {}, {}]
                     # 当前帧下的每一辆车
                     for each_car in each_frame_cars:
@@ -615,9 +577,8 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                             if each_car['track_cls'] not in all_cls[1]:
                                 all_cls[1].append(each_car['track_cls'])
                             # 计算距离最短与距离最长的车
-                            further_car_info[1], stop_car_info[1] = \
-                                get_2_stage_cars(further_car_info[1], stop_car_info[1], lanes_num_list[1],
-                                                 mid_point, pt_to_line_distance, each_car)
+                            get_2_stage_cars(further_car_info[1], stop_car_info[1], lanes_num_list[1],
+                                                 mid_point, pt_to_line_distance, each_car, h, w)
 
                         elif '右转' in each_car['direction_cls']:
                             # 有右转专用道时，计算距离用中点计算，不用点到线段的距离
@@ -632,9 +593,8 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                             if each_car['track_cls'] not in all_cls[2]:
                                 all_cls[2].append(each_car['track_cls'])
                             # 计算距离最短与距离最长的车
-                            further_car_info[2], stop_car_info[2] = \
-                                get_2_stage_cars(further_car_info[2], stop_car_info[2], lanes_num_list[2],
-                                                 mid_point, pt_to_line_distance, each_car)
+                            get_2_stage_cars(further_car_info[2], stop_car_info[2], lanes_num_list[2],
+                                                 mid_point, pt_to_line_distance, each_car, h, w)
                         # 左转和掉头
                         else:
                             pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
@@ -642,9 +602,11 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                             if each_car['track_cls'] not in all_cls[0]:
                                 all_cls[0].append(each_car['track_cls'])
                             # 计算距离最短与距离最长的车
-                            further_car_info[0], stop_car_info[0] = \
-                                get_2_stage_cars(further_car_info[0], stop_car_info[0], lanes_num_list[0],
-                                                 mid_point, pt_to_line_distance, each_car)
+                            get_2_stage_cars(further_car_info[0], stop_car_info[0], lanes_num_list[0],
+                                                 mid_point, pt_to_line_distance, each_car, h, w)
+                    # print(last_stop_dict)
+                    # print(stop_car_info)
+                    # print('--------------------------------------')
 
                 # print('对比', lanes_num_list[1])
                 # print(last_frame_info)
