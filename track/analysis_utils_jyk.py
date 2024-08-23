@@ -543,17 +543,14 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
     area_lines = calculate_mask_to_line(entrance_areas, stop_segments, h, w)
     for i, each_area_cars in enumerate(car_list):
         if len(each_area_cars) != 0:
-            print('-----------------------------------------------------------------')
+            # print('-----------------------------------------------------------------')
             # 每个方向对应的车道数，按照左转、直行、右转的顺序
             lanes_num_list = [entrance_lane_num[i][0] + entrance_lane_num[i][1],
                               entrance_lane_num[i][2] + entrance_lane_num[i][1] + entrance_lane_num[i][3],
                               entrance_lane_num[i][4] + entrance_lane_num[i][3]]
-            # 记录车辆位置的状态，True表示位置变化，False表示不变，[0]保存上一帧的变化,[1]记录当前帧的变化
-            state_tag = [[True, True], [True, True], [True, True]]
             # 存储所有类别，按照左转、直行、右转的顺序
             all_cls = [[] for _ in range(3)]
             # 每一帧的所有车
-            # print('-------------------------------------------------')
             # 存储最远的车，出现距离更远的车辆就写入，每获取到新一帧的数据，将已存在的车辆信息替换
             further_car_info = [{}, {}, {}]
             stop_car_info = [{}, {}, {}]
@@ -606,65 +603,33 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                                                  mid_point, pt_to_line_distance, each_car, h, w)
                     # print(last_stop_dict)
                     # print(stop_car_info)
+                    # print(all_cls)
                     # print('--------------------------------------')
 
-                # print('对比', lanes_num_list[1])
-                # print(last_frame_info)
-                # print(current_frame_info)
-    #             for j in range(len(current_frame_info)):
-    #                 # TODO:对上一帧是静止状态但原本距离最近的车辆在当前帧消失了，有两种情况:
-    #                 """
-    #                 1.车辆信息丢失，突然有一帧或几帧没识别到——这种情况对应的处理方法是要保存该消失车辆信息，直到下次出现将有用的数据替换回来继续计算
-    #                 处理方法：这一次新的值用上一次的来赋值，也就是这一次的没识别到的错误计算结果作废
-    #                 2.比如原本是2车道，存储两辆车，存储的就是在1车道上最近的两辆，2车道上没车，后续2车道上行驶进一辆车，
-    #                  识别到的最近车辆为12车道各一辆，也会导致车流状态没有从静止转为行驶但车辆信息消失
-    #                  由于是真实数据，旧的最近车辆数据确实应该被替换，若使用和1一样的处理方法，会导致车辆数据一直不会被替换回来
-    #                 """
-    #                 # 处理出现某一帧没识别到的情况，比如明明上一次是静止状态(False)这一次有一辆车就消失了是不合理的应该是没检测到，
-    #                 # 那么
-    #                 # if not state_tag[j][1] and sorted(current_frame_info[j].keys()) != sorted(last_frame_info[j].keys()):
-    #                 #     current_frame_info[j] = last_frame_info[j]
-    #                 # 保存相关数据，将当前数据结果保存给下一帧
-    #                 state_tag[j][0] = state_tag[j][1]
-    #                 # if current_frame_info[j]:
-    #                 #     print(state_tag[j])
-    #                 #     print(current_frame_info[j])
-    #                 #     print(last_frame_info[j])
-    #                 # if 2 in all_cls[j] or 7 in all_cls[j]:
-    #                 #     print(state_tag[j])
-    #                 # 计算当前帧车辆行驶状态
-    #                 state_tag[j][1] = is_car_move(current_frame_info[j], last_frame_info[j], state_tag[j][1], h, w)
-    #                 # 判断并进行排队长度的计算，当车流状态为由静止到运动时认为是红灯转绿灯，即False, True
-    #                 if state_tag[j] == [False, True]:
-    #                     print(all_cls[j])
-    #                     print(current_frame_info[j])
-    #                     print(last_frame_info[j])
-    #                     length = calculate_traj_queue_length(lanes_num_list[j], current_farthest_car[j], length_per_pixel)
-    #                     for cls in all_cls[j]:
-    #                         if cls not in queue_length_dict:
-    #                             queue_length_dict[cls] = length
-    #                 # 修改为只要经过对比当前帧与上一帧车辆数据后，判断状态为静止（False），则用上一帧数据表示当前帧数据
-    #                 # 用于避免车辆行驶缓慢的情况：
-    #                 # 由于车辆刚启动，有可能前后两帧只移动1像素点，也就是不超过判断为移动的阈值，用该方法来实现计算隔几帧的位置
-    #                 # if 2 in all_cls[j] or 7 in all_cls[j]:
-    #                 #     print(all_cls[j], state_tag[j])
-    #                 #     print(current_frame_info[j])
-    #                 #     print(last_frame_info[j])
-    #                 if not state_tag[j][1] and sorted(current_frame_info[j].keys()) == sorted(last_frame_info[j].keys()):
-    #                     current_frame_info[j] = last_frame_info[j]
-    #                 # if current_frame_info[j]:
-    #                 #     print(state_tag[j])
-    #             last_frame_info = current_frame_info
-    #
-    #         # 当前mask所有计算结束后的数据补充，没有计算到对应值的轨迹返回None
-    #         for k, cls_list in enumerate(all_cls):
-    #             # 先判断是否有数据
-    #             if len(cls_list) != 0:
-    #                 for cls in cls_list:
-    #                     if cls not in queue_length_dict:
-    #                         queue_length_dict[cls] = None
-    #
+                    for j in range(len(stop_car_info)):
+                        # 上一次有算出停止车辆，但当前停止车辆dict为空或小于对应车道数，则认为车辆由停止转为行驶，信号灯由红转绿
+                        if len(last_stop_dict[j]) == lanes_num_list[j] and len(stop_car_info[j]) < lanes_num_list[j]:
+                            # 计算车辆排队长度平均值
+                            average_length = sum(last_stop_dict[j].values()) / lanes_num_list[j] * length_per_pixel
+                            # 保存到类别对应的字典中
+                            for cls in all_cls[j]:
+                                if cls not in queue_length_dict:
+                                    queue_length_dict[cls] = average_length
+
+            # 当前mask所有计算结束后的数据补充，没有计算到对应值的轨迹返回None
+            for k, cls_list in enumerate(all_cls):
+                # 先判断是否有数据
+                if len(cls_list) != 0:
+                    for cls in cls_list:
+                        if cls not in queue_length_dict:
+                            queue_length_dict[cls] = None
     # print(queue_length_dict)
+
+    queue_length_list = []
+    # 排序轨迹
+    for i in range(len(queue_length_dict)):
+        queue_length_list.append(queue_length_dict[i])
+    print(queue_length_list)
 
     pass
 
