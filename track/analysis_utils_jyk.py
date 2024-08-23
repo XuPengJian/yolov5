@@ -515,10 +515,12 @@ def calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lan
 # 排队长度
 # 排队长度指路口进口道各转向的排队长度；定义为从路口信号灯转为绿灯时刻，该路口进口道各转向车流排队最后一辆车距离路口停止线的距离。
 # 直接算每根线的直线距离吧，然后选一根最短的
-def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_lane_num, direction_cls_list,
+def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num, direction_cls_list,
                            h, w, entrance_areas):
     # TODO:需要判断车辆在什么情况处于排队状态
     # TODO:需要知道停止线的位置
+    # 将停止线位置数据去归一化
+    stop_segments = unormalize_line(h, w, stop_lines)
     # 计算进口道对应的mask
     entrance_mask = get_each_mask(h, w, entrance_areas)
     # 先将车辆分到四个区域（进口道mask）
@@ -885,5 +887,4 @@ if len(scale_line) != 0 and scale_length:
 # exit_mask = get_each_mask(h, w, exit_areas)
 # headway_times = calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
 # headway_distances = calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
-stop_segments = unormalize_line(h, w, stop_lines)
-calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_lane_num, direction_cls_list, h, w, entrance_areas)
+calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num, direction_cls_list, h, w, entrance_areas)
