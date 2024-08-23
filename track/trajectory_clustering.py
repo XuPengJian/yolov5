@@ -478,7 +478,7 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     count_result = [track_count] + track_cls_count
     print(count_result)
     print(front_colors)
-    return count_result, front_colors, info_list
+    return count_result, front_colors, info_list, direction_cls_list
 
 
 def visualize_tracks(track_dic):

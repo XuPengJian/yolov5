@@ -515,7 +515,8 @@ def calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lan
 # 排队长度
 # 排队长度指路口进口道各转向的排队长度；定义为从路口信号灯转为绿灯时刻，该路口进口道各转向车流排队最后一辆车距离路口停止线的距离。
 # 直接算每根线的直线距离吧，然后选一根最短的
-def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_lane_num, h, w, entrance_areas):
+def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_lane_num, direction_cls_list,
+                           h, w, entrance_areas):
     # TODO:需要判断车辆在什么情况处于排队状态
     # TODO:需要知道停止线的位置
     # 计算进口道对应的mask
@@ -571,8 +572,9 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                             # 计算到停止线的距离
                             pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
                             # 统计车辆轨迹类别
-                            if each_car['track_cls'] not in all_cls[1]:
-                                all_cls[1].append(each_car['track_cls'])
+                            if not all_cls[1]:
+                                all_cls[1] = [index for index, direction in enumerate(direction_cls_list) if
+                                              direction == each_car['direction_cls']]
                             # 计算距离最短与距离最长的车
                             get_2_stage_cars(further_car_info[1], stop_car_info[1], lanes_num_list[1],
                                                  mid_point, pt_to_line_distance, each_car, h, w)
@@ -587,8 +589,9 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                             else:
                                 pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
                             # 统计车辆轨迹类别
-                            if each_car['track_cls'] not in all_cls[2]:
-                                all_cls[2].append(each_car['track_cls'])
+                            if not all_cls[2]:
+                                all_cls[2] = [index for index, direction in enumerate(direction_cls_list) if
+                                              direction == each_car['direction_cls']]
                             # 计算距离最短与距离最长的车
                             get_2_stage_cars(further_car_info[2], stop_car_info[2], lanes_num_list[2],
                                                  mid_point, pt_to_line_distance, each_car, h, w)
@@ -596,8 +599,9 @@ def calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_
                         else:
                             pt_to_line_distance = calculate_pt_to_segment(mid_point, area_lines[i][0])
                             # 统计车辆轨迹类别
-                            if each_car['track_cls'] not in all_cls[0]:
-                                all_cls[0].append(each_car['track_cls'])
+                            if not all_cls[0]:
+                                all_cls[0] = [index for index, direction in enumerate(direction_cls_list) if
+                                              direction == each_car['direction_cls']]
                             # 计算距离最短与距离最长的车
                             get_2_stage_cars(further_car_info[0], stop_car_info[0], lanes_num_list[0],
                                                  mid_point, pt_to_line_distance, each_car, h, w)
@@ -860,7 +864,7 @@ img_base = cv2.cvtColor(img_cv2, cv2.COLOR_RGB2BGR)
 h, w = img_base.shape[:2]
 
 # 执行绘图算法，并获取info_list
-count_result, front_colors, info_list = draw_lines(img_base, txt_path, threshold=0.125, min_cars=5)
+count_result, front_colors, info_list, direction_cls_list = draw_lines(img_base, txt_path, threshold=0.125, min_cars=5)
 print('info_list第一条数据展示：', info_list[0])
 
 # -----------------------------------------------
@@ -882,4 +886,4 @@ if len(scale_line) != 0 and scale_length:
 # headway_times = calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
 # headway_distances = calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
 stop_segments = unormalize_line(h, w, stop_lines)
-calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_lane_num, h, w, entrance_areas)
+calculate_queue_length(info_list, length_per_pixel, stop_segments, entrance_lane_num, direction_cls_list, h, w, entrance_areas)
