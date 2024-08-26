@@ -365,7 +365,7 @@ def is_car_stop(pt1, pt2, x_tolerance=0.001, y_tolerance=0.0015):
         return False
 
 
-def get_2_stage_cars(further_car_dict, stop_car_dict, lanes_num, mid_point,
+def update_cars_dict(further_car_dict, stop_car_dict, lanes_num, mid_point,
                      pt_to_line_distance, each_car_info, h, w):
     # TODO:有没有更长的（对比dict2）——有没有出现过（dict1）——是不是静止（对比dict1）——替换dict2——用dict2判断有没有行驶
     #   步骤1：计算距离最长的n辆车，若出现新的——加入dict1（dict1不限长度）
@@ -669,8 +669,8 @@ def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lan
                             if not all_cls[1]:
                                 all_cls[1] = [index for index, direction in enumerate(direction_cls_list) if
                                               direction == each_car['direction_cls']]
-                            # 计算距离最短与距离最长的车
-                            get_2_stage_cars(further_car_info[1], stop_car_info[1], lanes_num_list[1],
+                            # 计算与调整存储最远车辆和静止车辆的dict
+                            update_cars_dict(further_car_info[1], stop_car_info[1], lanes_num_list[1],
                                              mid_point, pt_to_line_distance, each_car, h, w)
 
                         elif '右转' in each_car['direction_cls']:
@@ -686,8 +686,7 @@ def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lan
                             if not all_cls[2]:
                                 all_cls[2] = [index for index, direction in enumerate(direction_cls_list) if
                                               direction == each_car['direction_cls']]
-                            # 计算距离最短与距离最长的车
-                            get_2_stage_cars(further_car_info[2], stop_car_info[2], lanes_num_list[2],
+                            update_cars_dict(further_car_info[2], stop_car_info[2], lanes_num_list[2],
                                              mid_point, pt_to_line_distance, each_car, h, w)
                         # 左转和掉头
                         else:
@@ -696,8 +695,7 @@ def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lan
                             if not all_cls[0]:
                                 all_cls[0] = [index for index, direction in enumerate(direction_cls_list) if
                                               direction == each_car['direction_cls']]
-                            # 计算距离最短与距离最长的车
-                            get_2_stage_cars(further_car_info[0], stop_car_info[0], lanes_num_list[0],
+                            update_cars_dict(further_car_info[0], stop_car_info[0], lanes_num_list[0],
                                              mid_point, pt_to_line_distance, each_car, h, w)
                     # print(last_stop_dict)
                     # print(stop_car_info)
