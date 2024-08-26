@@ -735,11 +735,13 @@ def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lan
 # 速度可以通过计算车辆在连续两帧之间的移动距离除以时间差来计算。
 # 计算路口围合区域的平均速度
 
-def calculate_speed_at_intersection(info_list, intersection_mask, length_per_pixel):
+def calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w):
     # 基于汽车id来分
     car_dict = {}
     # 基于轨迹分类来分
     speed_dict = {}
+    # 得到十字路口的掩码图像
+    intersection_mask = get_mask(h, w, intersection_area)
     # 先把所有处于路口区域的track_info，放入一个新列表中
     for track_info in info_list:
         center_x, center_y = calculate_midpoint(track_info)
@@ -968,12 +970,9 @@ if len(scale_line) != 0 and scale_length:
     length_per_pixel = scale_length / distance
     print(length_per_pixel)
 
-# get_mask(h, w, entrance_areas)
 
-# intersection_mask = get_mask(h, w, intersection_area)
-# speed = calculate_speed_at_intersection(info_list, length_per_pixel, intersection_mask)
-# # 出口道
-# exit_mask = get_each_mask(h, w, exit_areas)
-# headway_times = calculate_headway_times(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
-# headway_distances = calculate_headway_distances(info_list, length_per_pixel, exit_mask, exit_lane_num, min_cars)
+speed = calculate_speed_at_intersection(info_list, length_per_pixel, intersection_area, h, w)
+headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas, exit_areas)
+headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w,
+                                                entrance_areas, exit_areas)
 calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num, direction_cls_list, h, w, entrance_areas)
