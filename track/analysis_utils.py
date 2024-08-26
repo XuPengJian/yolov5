@@ -814,12 +814,19 @@ def generate_data_excel(save_dir, file_name, direction_cls_list, speed, headway_
     worksheet = workbook.add_worksheet(f"车流量数据统计表")
     # 定义表头
     headers = ['轨迹序号', '方向', '车速m/s', '车头时距s', '车头间距m', '排队长度m']
+    # 定义格式
+    cell_format = workbook.add_format({'align': 'center', 'valign': 'top', 'border': 1, 'border_color': 'black'})
     # 写入表头
-    worksheet.write_row('A1', list(headers))
+    worksheet.write_row('A1', list(headers), cell_format)
+    # 设置方向列宽度
+    width = 0
     for num in range(len(direction_cls_list)):
+        width = max(width, len(direction_cls_list[num]) * 2)
         # 写入行数据
         worksheet.write_row(num + 1, 0, [num + 1, direction_cls_list[num], speed[num], headway_times[num],
-                                         headway_distances[num], queue_length_list[num]])
+                                         headway_distances[num], queue_length_list[num]], cell_format)
+    # 设置宽度
+    worksheet.set_column(1, 1, width)
     workbook.close()  # 关闭工作簿
 
 
