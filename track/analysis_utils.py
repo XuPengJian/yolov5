@@ -797,7 +797,7 @@ def calculate_speed_at_intersection(info_list, intersection_area, length_per_pix
     # if len(speed_list) > 1:
     #     distance = calculate_distance((speed_list[0]['x1'], speed_list[0]['y1']),
     #                                   (speed_list[-1]['x1'], speed_list[-1]['y1']))
-    #     time_diff = (speed_list[-1]['frame'] - speed_list[0]['frame']) / 30  # 30fps
+    #     time_diff = (speed_list[-1]['frame'] - spe    ed_list[0]['frame']) / 30  # 30fps
     #     speed = distance * length_per_pixel / time_diff
     #     return speed
     return track_speed_avg_list
@@ -969,7 +969,7 @@ if len(scale_line) != 0 and scale_length:
     print(length_per_pixel)
 
 
-speed = calculate_speed_at_intersection(info_list, length_per_pixel, intersection_area, h, w)
+speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w)
 headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas, exit_areas)
 headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w,
                                                 entrance_areas, exit_areas)
