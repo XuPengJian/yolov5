@@ -199,7 +199,7 @@ def calculate_headway_distance(car_list, lanes_arrays, length_per_pixel):
         # 计算平均车头间距
         sum_distance = sum_distance / lanes_lens
         # print(sum_distance, lanes_lens)
-        return sum_distance
+        return round(sum_distance, 2)
 
 
 # 计算某一方向车头时距
@@ -710,7 +710,8 @@ def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lan
                         if len(last_stop_dict[j]) == lanes_num_list[j] and \
                                 len(stop_car_info[j]) < lanes_num_list[j]:
                             # 计算车辆排队长度平均值
-                            average_length = sum(last_stop_dict[j].values()) / lanes_num_list[j] * length_per_pixel
+                            average_length = round(sum(last_stop_dict[j].values()) / lanes_num_list[j] *
+                                                   length_per_pixel, 2)
                             # 保存到类别对应的字典中
                             for cls in all_cls[j]:
                                 if cls not in queue_length_dict:
@@ -790,7 +791,7 @@ def calculate_speed_at_intersection(info_list, intersection_area, length_per_pix
     # 排序轨迹
     for i in range(len(speed_dict)):
         speed_list = speed_dict[i]
-        avg_speed = sum(speed_list) / len(speed_list)
+        avg_speed = round(sum(speed_list) / len(speed_list), 2)
         track_speed_avg_list.append(avg_speed)
         # print(f'第{i}条轨迹的平均速度为：', avg_speed)
     print(track_speed_avg_list)
