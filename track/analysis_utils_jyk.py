@@ -637,8 +637,6 @@ def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lan
         queue_length_list.append(queue_length_dict[i])
     print(queue_length_list)
 
-    pass
-
 
 # 速度
 # 速度可以通过计算车辆在连续两帧之间的移动距离除以时间差来计算。（用起点终点）
