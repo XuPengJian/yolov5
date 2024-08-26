@@ -7,10 +7,13 @@
 """
 
 import math
+import os
+
 import numpy as np
 import cv2
 from PIL import Image
 from track.trajectory_clustering import draw_lines
+import xlsxwriter as xw
 
 
 # 计算两点之间的距离
@@ -728,6 +731,8 @@ def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lan
         queue_length_list.append(queue_length_dict[i])
     print(queue_length_list)
 
+    return queue_length_list
+
 
 # 速度
 # 速度可以通过计算车辆在连续两帧之间的移动距离除以时间差来计算。
@@ -801,6 +806,20 @@ def calculate_speed_at_intersection(info_list, intersection_area, length_per_pix
     #     speed = distance * length_per_pixel / time_diff
     #     return speed
     return track_speed_avg_list
+
+
+def generate_data_excel(save_dir, file_name, direction_cls_list, speed, headway_times, headway_distances, queue_length_list):
+    workbook = xw.Workbook(os.path.join(save_dir, file_name + '.xlsx'))  # 创建工作簿
+    worksheet = workbook.add_worksheet(f"车流量数据统计表")
+    # 定义表头
+    headers = ['轨迹序号', '方向', '车速m/s', '车头时距s', '车头间距m', '排队长度m']
+    # 写入表头
+    worksheet.write_row('A1', list(headers))
+    for num in range(len(direction_cls_list)):
+        # 写入行数据
+        worksheet.write_row(num + 1, 0, [num + 1, direction_cls_list[num], speed[num], headway_times[num],
+                                         headway_distances[num], queue_length_list[num]])
+    workbook.close()  # 关闭工作簿
 
 
 # ---------------第一组测试数据---------------
@@ -973,4 +992,10 @@ speed = calculate_speed_at_intersection(info_list, intersection_area, length_per
 headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas, exit_areas)
 headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w,
                                                 entrance_areas, exit_areas)
-calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num, direction_cls_list, h, w, entrance_areas)
+queue_length_list = calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num,
+                                           direction_cls_list, h, w, entrance_areas)
+
+# 先自己定义一个传入参数，用于文件生成
+save_dir = os.getcwd()
+file_name = '测试数据'
+generate_data_excel(save_dir, file_name, direction_cls_list, speed, headway_times, headway_distances, queue_length_list)
