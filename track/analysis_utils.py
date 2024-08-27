@@ -779,8 +779,7 @@ def calculate_speed_at_intersection(info_list, intersection_area, length_per_pix
         start_frame = track_list[0]['frame']
         end_frame = track_list[-1]['frame']
 
-        # 并转换为公里每小时
-        speed = (total_distance * length_per_pixel) / ((end_frame - start_frame) / 30) * 3.6
+        speed = (total_distance * length_per_pixel) / ((end_frame - start_frame) / 30)
 
         # 把计算出来的每个速度放到轨迹字典中
         if track_list[0]['track_cls'] not in speed_dict:
