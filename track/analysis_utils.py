@@ -59,7 +59,7 @@ def get_mask(h, w, mask_pt: list):
 def is_point_in_mask(point, mask):
     # 实现点在多边形内的判断逻辑
     x1, y1 = point
-    result = mask[y1, x1]
+    result = mask[round(y1), round(x1)]
     # print(result)
     return result
 
@@ -67,7 +67,7 @@ def is_point_in_mask(point, mask):
 def calculate_midpoint(info_list):
     x_center = (float(info_list['x1']) + float(info_list['x2'])) / 2
     y_center = (float(info_list['y1']) + float(info_list['y2'])) / 2
-    return int(x_center), int(y_center)
+    return x_center, y_center
 
 
 # 通过多边形得到掩码矩阵与mask中点
