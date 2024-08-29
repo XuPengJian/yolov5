@@ -41,8 +41,8 @@ def get_mask(h, w, mask_pt: list):
     # 遍历每一根多段线
     for pl in mask_pt:
         pl = np.array(pl)
-        pl[:, 0] = np.round(pl[:, 0] * w)  # x
-        pl[:, 1] = np.round(pl[:, 1] * h)  # y
+        pl[:, 0] = np.round(pl[:, 0] * (w - 1))  # x
+        pl[:, 1] = np.round(pl[:, 1] * (h - 1))  # y
 
         # 绘制多边形
         cv2.polylines(img, [np.array(pl, dtype=np.int32)], True, 1)
@@ -78,8 +78,8 @@ def get_each_mask(h, w, mask_pt: list):
         # 创建图像
         img = np.zeros((h, w), np.uint8)
         pl = np.array(pl)
-        pl[:, 0] = np.round(pl[:, 0] * w)  # x
-        pl[:, 1] = np.round(pl[:, 1] * h)  # y
+        pl[:, 0] = np.round(pl[:, 0] * (w - 1))  # x
+        pl[:, 1] = np.round(pl[:, 1] * (h - 1))  # y
 
         # 绘制多边形
         cv2.polylines(img, [np.array(pl, dtype=np.int32)], True, 1)
@@ -95,7 +95,7 @@ def get_each_mask(h, w, mask_pt: list):
 
 # 停止线数据去归一化
 def unormalize_line(h, w, stop_line):
-    new_line = [[[int(x * w), int(y * h)] for x, y in line] for line in stop_line]
+    new_line = [[[round(x * (w - 1)), round(y * (h - 1))] for x, y in line] for line in stop_line]
     return new_line
 
 
