@@ -9,11 +9,53 @@
 import math
 import os
 
+import argparse
 import numpy as np
 import cv2
 from PIL import Image
 from track.trajectory_clustering import draw_lines
 import xlsxwriter as xw
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--image_path', type=str,
+                        default=r'example\1.txt',
+                        help='作为底图的图片路径，在detect_video已经存在指定路径')
+    parser.add_argument('--txt_path', type=str,
+                        default=r'example\1.jpg',
+                        help='储存目标跟踪结果的txt，内容包括：frame, id, x1, y1, x2, y2, conf, cls')
+    parser.add_argument('--threshold', type=float,
+                        default=0.125,
+                        help='聚类方法使用的阈值，和目标检测的阈值不是一个东西')
+    parser.add_argument('--min_cars', type=int,
+                        default=5,
+                        help='最少车辆数阈值')
+    parser.add_argument('--scale_line', type=str,
+                        default='[]',
+                        help='绘制一根直线,里面是[[x, y][x, y]]的形式')
+    parser.add_argument('--scale_length', type=float,
+                        default=0,
+                        help='比例尺的实际尺寸，以m为单位')
+    parser.add_argument('--entrance_areas', type=str,
+                        default='[]',
+                        help='进口道区域，包含多个区域,里面是[[[x, y][x, y]][[...]]]的形式')
+    parser.add_argument('--entrance_lane_num', type=str,
+                        default='[0,0,0,0,0]',
+                        help='进口道区域各个方向的数量统计，格式为[[左转,直行和左转合用车道,直行,直行和右转合用车道,右转],[...],...]')
+    parser.add_argument('--exit_areas', type=str,
+                        default='[]',
+                        help='出口道区域，包含多个区域,里面是[[[x, y][x, y]][[...]]]的形式')
+    parser.add_argument('--stop_lines', type=str,
+                        default='[]',
+                        help='停止线的位置，包含多根直线，都由两点构成,里面是[[[x, y][x, y]][[...]]]的形式')
+    parser.add_argument('--intersection_area', type=str,
+                        default='[]',
+                        help='路口区域,里面是[[[x, y][x, y]][[...]]]的形式')
+    parser.add_argument('--save_path', type=str,
+                        default='',
+                        help='xlsx的保存路径')
+    return parser.parse_args()
 
 
 # 计算两点之间的距离
@@ -829,7 +871,22 @@ def generate_data_excel(save_path, direction_cls_list, speed, headway_times, hea
     workbook.close()  # 关闭工作簿
 
 
-if __name__ == '__main__':
+def main(args):
+    # 读取的txt数据
+    txt_path = args.txt_path
+    # 底图图片
+    image_path = args.image_path
+    # 超参
+    threshold = args.threshold
+    min_cars = args.min_cars
+
+    scale_line = eval(args.scale_line)  # 比例尺线
+    scale_length = args.scale_length  # 比例尺的实际尺寸，以m为单位
+    entrance_areas = eval(args.entrance_areas)  # 进口道区域
+    entrance_lane_num = eval(args.entrance_lane_num)
+    exit_areas = eval(args.exit_areas)
+    stop_lines = eval(args.stop_lines)  # 停止线位置
+    intersection_area = eval(args.intersection_area)
 
     # ---------------第一组测试数据---------------
     # 读取的txt数据
@@ -890,7 +947,7 @@ if __name__ == '__main__':
                    [0.4758758544921875, 0.8203125], [0.4700164794921875, 0.8307291666666666],
                    [0.4582977294921875, 0.8255208333333334], [0.4397430419921875, 0.7786458333333334],
                    [0.4163055419921875, 0.7387152777777778]]]
-    exit_lane_num = [[4, 1], [2, 1], [4, 1], [2, 1]]
+    # exit_lane_num = [[4, 1], [2, 1], [4, 1], [2, 1]]
     stop_lines = [[[0.4431610107421875, 0.2682291666666667], [0.4578094482421875, 0.2960069444444444]],
                   [[0.4929656982421875, 0.2630208333333333], [0.5603485107421875, 0.2630208333333333]],
                   [[0.6736297607421875, 0.3359375], [0.6589813232421875, 0.3602430555555556]],
@@ -983,9 +1040,9 @@ if __name__ == '__main__':
     h, w = img_base.shape[:2]
 
     # 执行绘图算法，并获取info_list
-    count_result, front_colors, info_list, direction_cls_list = draw_lines(img_base, txt_path, threshold=0.125,
-                                                                           min_cars=5)
-    print('info_list第一条数据展示：', info_list[0])
+    count_result, front_colors, info_list, direction_cls_list = draw_lines(img_base, txt_path, threshold=threshold,
+                                                                           min_cars=min_cars)
+    # print('info_list第一条数据展示：', info_list[0])
 
     # -----------------------------------------------
     # Step1：去归一化，并转为numpy格式，方便计算，获取length_per_pixel
@@ -1009,3 +1066,8 @@ if __name__ == '__main__':
     file_name = '测试数据.xlsx'
     save_path = os.path.join(save_dir, file_name)
     generate_data_excel(save_path, direction_cls_list, speed, headway_times, headway_distances, queue_length_list)
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(args)
