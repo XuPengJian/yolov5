@@ -53,7 +53,7 @@ def parse_args():
                         default='[]',
                         help='路口区域,里面是[[[x, y][x, y]][[...]]]的形式')
     parser.add_argument('--save_path', type=str,
-                        default='',
+                        default='测试数据.xlsx',
                         help='xlsx的保存路径')
     return parser.parse_args()
 
@@ -351,8 +351,8 @@ def calculate_mask_to_line(entrance_areas, stop_segments, h, w):
     # 存储每个mask的中点
     mask_midpoints = []
     for each_area in entrance_areas:
-        x_coords = [point[0] * w for point in each_area]
-        y_coords = [point[1] * h for point in each_area]
+        x_coords = [point[0] * (w - 1) for point in each_area]
+        y_coords = [point[1] * (h - 1) for point in each_area]
 
         # 计算当前闭合区域的中点
         x = sum(x_coords) / len(x_coords)
@@ -877,9 +877,9 @@ def main(args):
     # 底图图片
     image_path = args.image_path
     # 超参
-    threshold = args.threshold
-    min_cars = args.min_cars
-
+    threshold = args.threshold  # 聚类阈值
+    min_cars = args.min_cars  # 最小车辆数
+    # 新绘制内容
     scale_line = eval(args.scale_line)  # 比例尺线
     scale_length = args.scale_length  # 比例尺的实际尺寸，以m为单位
     entrance_areas = eval(args.entrance_areas)  # 进口道区域
@@ -1032,6 +1032,7 @@ def main(args):
     #     tracks.append(track_info_dict)
     # print(tracks)
 
+    # ---------------------一定会执行的基本操作--------------------
     # 读取图片
     img_pil = Image.open(image_path)
     img_cv2 = np.array(img_pil)
@@ -1042,30 +1043,31 @@ def main(args):
     # 执行绘图算法，并获取info_list
     count_result, front_colors, info_list, direction_cls_list = draw_lines(img_base, txt_path, threshold=threshold,
                                                                            min_cars=min_cars)
+    # -----------------------------------------------------------
     # print('info_list第一条数据展示：', info_list[0])
 
-    # -----------------------------------------------
+    # -------------------进阶需求----------------------------------------
     # Step1：去归一化，并转为numpy格式，方便计算，获取length_per_pixel
-    scale_line = np.array(scale_line) * np.array((w, h))
-    print('scale_line:', scale_line)
+    scale_line = np.array(scale_line) * np.array((w - 1, h - 1))
     if len(scale_line) != 0 and scale_length:
         distance = calculate_distance(scale_line[0], scale_line[1])
         # 计算得到一个像素代表的实际真实长度（以m为单位）
         length_per_pixel = scale_length / distance
         print(length_per_pixel)
+        # todo:这里写上必须用到的输入的判断
+        speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w)
+        headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas,
+                                                exit_areas)
+        headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w,
+                                                        entrance_areas, exit_areas)
+        queue_length_list = calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num,
+                                                   direction_cls_list, h, w, entrance_areas)
 
-    speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w)
-    headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas, exit_areas)
-    headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w,
-                                                    entrance_areas, exit_areas)
-    queue_length_list = calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num,
-                                               direction_cls_list, h, w, entrance_areas)
-
-    # 先自己定义一个传入参数，用于文件生成
-    save_dir = os.getcwd()
-    file_name = '测试数据.xlsx'
-    save_path = os.path.join(save_dir, file_name)
-    generate_data_excel(save_path, direction_cls_list, speed, headway_times, headway_distances, queue_length_list)
+        # 先自己定义一个传入参数，用于文件生成
+        generate_data_excel(args.save_path, direction_cls_list, speed, headway_times, headway_distances,
+                            queue_length_list)
+    else:
+        print("未输入比例尺相关的信息")
 
 
 if __name__ == "__main__":
