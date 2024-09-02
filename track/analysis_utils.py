@@ -919,7 +919,7 @@ def main(args):
                        [0.6721649169921875, 0.3333333333333333], [0.9993133544921875, 0.3611111111111111],
                        [0.9983367919921875, 0.5138888888888888], [0.9534149169921875, 0.5190972222222222],
                        [0.6516571044921875, 0.5243055555555556]]]  # 进口道区域
-    entrance_lane_num = [[2, 0, 2, 0, 1], [2, 0, 2, 0, 1], [2, 1, 1, 0, 1], [1, 0, 3, 0, 1]]
+    # entrance_lane_num = [[2, 0, 2, 0, 1], [2, 0, 2, 0, 1], [2, 1, 1, 0, 1], [1, 0, 3, 0, 1]]
     exit_areas = [[[0.4436492919921875, 0.2630208333333333], [0.4592742919921875, 0.2942708333333333],
                    [0.4163055419921875, 0.3637152777777778], [0.4065399169921875, 0.3880208333333333],
                    [0.4065399169921875, 0.5199652777777778], [0.0012664794921875, 0.5217013888888888],
@@ -1054,14 +1054,37 @@ def main(args):
         # 计算得到一个像素代表的实际真实长度（以m为单位）
         length_per_pixel = scale_length / distance
         print(length_per_pixel)
-        # todo:这里写上必须用到的输入的判断
-        speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w)
-        headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas,
-                                                exit_areas)
-        headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w,
-                                                        entrance_areas, exit_areas)
-        queue_length_list = calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num,
-                                                   direction_cls_list, h, w, entrance_areas)
+        # 先初始化四个输出数据
+        array_of_none = [None for _ in range(len(direction_cls_list))]
+        speed = array_of_none
+        headway_times = array_of_none
+        headway_distances = array_of_none
+        queue_length_list = array_of_none
+        # 必须用到的输入的判断
+        # 路口区域intersection_area不得为空
+        if intersection_area:
+            speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w)
+        else:
+            print("未输入路口mask信息")
+        # 使用 all() 函数判断entrance_lane_num中是否所有元素都为0（即没传入该值）
+        # 同时进口道区域mask不得为空
+        if not all(x == 0 for x in entrance_lane_num) and entrance_areas:
+            # 出口道区域exit_areas不为空
+            if exit_areas:
+                headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas,
+                                                        exit_areas)
+                headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars
+                                                                , h, w, entrance_areas, exit_areas)
+            else:
+                print("未输入出口道区域的mask信息")
+            # 停止线stop_lines不得为空
+            if stop_lines:
+                queue_length_list = calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num,
+                                                           direction_cls_list, h, w, entrance_areas)
+            else:
+                print("未输入停止线相关信息")
+        else:
+            print("未输入进口道车道数或进口道区域的mask信息")
 
         # 先自己定义一个传入参数，用于文件生成
         generate_data_excel(args.save_path, direction_cls_list, speed, headway_times, headway_distances,
