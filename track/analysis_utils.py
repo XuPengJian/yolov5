@@ -850,11 +850,13 @@ def calculate_speed_at_intersection(info_list, intersection_area, length_per_pix
     return track_speed_avg_list
 
 
-def generate_data_excel(save_path, direction_cls_list, speed, headway_times, headway_distances, queue_length_list):
+def generate_data_excel(save_path, direction_cls_list, speed, headway_times, headway_distances, queue_length_list,
+                        count_result):
     workbook = xw.Workbook(save_path)  # 创建工作簿
     worksheet = workbook.add_worksheet(f"车流量数据统计表")
     # 定义表头
-    headers = ['轨迹序号', '方向', '车速m/s', '车头时距s', '车头间距m', '排队长度m']
+    headers = ['轨迹序号', '方向', '车速m/s', '车头时距s', '车头间距m', '排队长度m',
+               '大型巴士', '小型轿车', '大型货车', '中型货车', '小型货车']
     # 定义格式
     cell_format = workbook.add_format({'align': 'center', 'valign': 'top', 'border': 1, 'border_color': 'black'})
     # 写入表头
@@ -865,7 +867,8 @@ def generate_data_excel(save_path, direction_cls_list, speed, headway_times, hea
         width = max(width, len(direction_cls_list[num]) * 2)
         # 写入行数据
         worksheet.write_row(num + 1, 0, [num + 1, direction_cls_list[num], speed[num], headway_times[num],
-                                         headway_distances[num], queue_length_list[num]], cell_format)
+                                         headway_distances[num], queue_length_list[num]] + count_result[num + 1],
+                            cell_format)
     # 设置宽度
     worksheet.set_column(1, 1, width)
     workbook.close()  # 关闭工作簿
@@ -919,7 +922,7 @@ def main(args):
                        [0.6721649169921875, 0.3333333333333333], [0.9993133544921875, 0.3611111111111111],
                        [0.9983367919921875, 0.5138888888888888], [0.9534149169921875, 0.5190972222222222],
                        [0.6516571044921875, 0.5243055555555556]]]  # 进口道区域
-    # entrance_lane_num = [[2, 0, 2, 0, 1], [2, 0, 2, 0, 1], [2, 1, 1, 0, 1], [1, 0, 3, 0, 1]]
+    entrance_lane_num = [[2, 0, 2, 0, 1], [2, 0, 2, 0, 1], [2, 1, 1, 0, 1], [1, 0, 3, 0, 1]]
     exit_areas = [[[0.4436492919921875, 0.2630208333333333], [0.4592742919921875, 0.2942708333333333],
                    [0.4163055419921875, 0.3637152777777778], [0.4065399169921875, 0.3880208333333333],
                    [0.4065399169921875, 0.5199652777777778], [0.0012664794921875, 0.5217013888888888],
@@ -1088,7 +1091,7 @@ def main(args):
 
         # 先自己定义一个传入参数，用于文件生成
         generate_data_excel(args.save_path, direction_cls_list, speed, headway_times, headway_distances,
-                            queue_length_list)
+                            queue_length_list, count_result)
     else:
         print("未输入比例尺相关的信息")
 
