@@ -10,7 +10,7 @@ import imageio.v2 as iio
 
 import matplotlib.pyplot as plt
 # from sklearn.cluster import DBSCAN
-from track.QuickBundleClustering import cal_trajectory_length, resample_points, normalize, extend_lines, \
+from QuickBundleClustering import cal_trajectory_length, resample_points, normalize, extend_lines, \
     remove_duplicates
 from dipy.segment.clustering import QuickBundles
 from dipy.segment.featurespeed import MidpointFeature, VectorOfEndpointsFeature, CenterOfMassFeature
@@ -40,8 +40,10 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     min_length = 最短检测线长度过滤,作为过滤依据(归一化结果)
     """
     # 超参部分
-    min_points_count = 60  # 最少检测点的数量,作为过滤依据
-    min_length = 0.3  # 最短检测线长度过滤,作为过滤依据(归一化结果),尽可能要完整长度的
+    # min_points_count = 60  # 最少检测点的数量,作为过滤依据
+    # min_length = 0.3  # 最短检测线长度过滤,作为过滤依据(归一化结果),尽可能要完整长度的
+    min_points_count = 30  # 最少检测点的数量,作为过滤依据
+    min_length = 0.2  # 最短检测线长度过滤,作为过滤依据(归一化结果),尽可能要完整长度的
 
     # 帧, id, x1, y1, x2, y2, conf, cls
     # 3,4,2052,996,2086,1061,0.881012,1
@@ -416,7 +418,8 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     info_list = output_info(txt_path, id_track_dic, start_vector_list, end_vector_list, direction_cls_list)
 
     if len(track_representation) == 0:
-        return 0
+        print('轨迹视频过短，无法生成轨迹聚类的结果')
+        return None
     # 将轨迹还原到原图的尺寸
     track_representation *= np.array([w, h])
     # 四舍五入并转化为像素点位置int类型

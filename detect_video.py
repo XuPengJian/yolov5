@@ -574,22 +574,8 @@ def main(args):
             # 选取最后一帧以及最终生成的txt文件生成车流量的图片
             # 已经是rgb了甚至都不有再转一下了
             # tmp_frame = cv2.cvtColor(tmp_frame, cv2.COLOR_BGR2RGB)
+            # 保存最后一张图片作为底图
             iio.imwrite(txt_save_path.split('.')[0] + '.jpg', tmp_frame)
-            # 尝试生成轨迹
-            try:
-                count_result, front_colors = draw_lines(tmp_frame, txt_save_path, threshold=0.125, min_cars=5)
-                # print(count_result, front_colors)
-                # with open(txt_save_path.split('.')[0] + '_result.txt', 'w') as f:
-                #     f.write(f'{count_result}\n{front_colors}\n')
-                # print("Camera capture over!")
-                break
-            # 如果轨迹无法生成
-            except Exception as e:
-                with open(txt_save_path.split('.')[0] + '_result.txt', 'w') as f:
-                    f.write(f'0\n0\n')
-                print(e)
-                print('轨迹图像生成失败!')
-                break
 
         # 读取成功则开始计算frame_id
         yolo.frame_id += 1

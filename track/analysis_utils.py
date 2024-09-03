@@ -13,7 +13,7 @@ import argparse
 import numpy as np
 import cv2
 from PIL import Image
-from track.trajectory_clustering import draw_lines
+from trajectory_clustering import draw_lines
 import xlsxwriter as xw
 
 
