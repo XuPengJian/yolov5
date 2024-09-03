@@ -22,7 +22,7 @@ from utils.utils import (cvtColor, get_anchors, get_classes, preprocess_input,
                          resize_image, get_mask, show_config)
 from utils.utils_bbox import DecodeBox
 from track.tracker.byte_tracker import BYTETracker
-from track.trajectory_clustering import draw_lines
+# from track.trajectory_clustering import draw_lines
 
 import warnings
 
@@ -576,6 +576,7 @@ def main(args):
             # tmp_frame = cv2.cvtColor(tmp_frame, cv2.COLOR_BGR2RGB)
             # 保存最后一张图片作为底图
             iio.imwrite(txt_save_path.split('.')[0] + '.jpg', tmp_frame)
+            break
 
         # 读取成功则开始计算frame_id
         yolo.frame_id += 1
