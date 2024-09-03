@@ -1051,18 +1051,18 @@ def main(args):
 
     # -------------------进阶需求----------------------------------------
     # Step1：去归一化，并转为numpy格式，方便计算，获取length_per_pixel
+    # 先初始化四个输出数据
+    array_of_none = [None for _ in range(len(direction_cls_list))]
+    speed = array_of_none
+    headway_times = array_of_none
+    headway_distances = array_of_none
+    queue_length_list = array_of_none
     if len(scale_line) != 0 and scale_length:
         scale_line = np.array(scale_line) * np.array((w - 1, h - 1))
         distance = calculate_distance(scale_line[0], scale_line[1])
         # 计算得到一个像素代表的实际真实长度（以m为单位）
         length_per_pixel = scale_length / distance
         print(length_per_pixel)
-        # 先初始化四个输出数据
-        array_of_none = [None for _ in range(len(direction_cls_list))]
-        speed = array_of_none
-        headway_times = array_of_none
-        headway_distances = array_of_none
-        queue_length_list = array_of_none
         # 必须用到的输入的判断
         # 路口区域intersection_area不得为空
         if intersection_area:
@@ -1088,12 +1088,11 @@ def main(args):
                 print("未输入停止线相关信息")
         else:
             print("未输入进口道车道数或进口道区域的mask信息")
-
-        # 先自己定义一个传入参数，用于文件生成
-        generate_data_excel(args.save_path, direction_cls_list, speed, headway_times, headway_distances,
-                            queue_length_list, count_result)
     else:
         print("未输入比例尺相关的信息")
+    # 先自己定义一个传入参数，用于文件生成
+    generate_data_excel(args.save_path, direction_cls_list, speed, headway_times, headway_distances,
+                        queue_length_list, count_result)
 
 
 if __name__ == "__main__":
