@@ -41,7 +41,7 @@ def parse_args():
                         default='[]',
                         help='进口道区域，包含多个区域,里面是[[[x, y][x, y]][[...]]]的形式')
     parser.add_argument('--entrance_lane_num', type=str,
-                        default='[0,0,0,0,0]',
+                        default='[]',
                         help='进口道区域各个方向的数量统计，格式为[[左转,直行和左转合用车道,直行,直行和右转合用车道,右转],[...],...]')
     parser.add_argument('--exit_areas', type=str,
                         default='[]',
@@ -1071,7 +1071,7 @@ def main(args):
             print("未输入路口mask信息")
         # 使用 all() 函数判断entrance_lane_num中是否所有元素都为0（即没传入该值）
         # 同时进口道区域mask不得为空
-        if not all(x == 0 for x in entrance_lane_num) and entrance_areas:
+        if entrance_lane_num and entrance_areas:
             # 出口道区域exit_areas不为空
             if exit_areas:
                 headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas,
