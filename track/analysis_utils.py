@@ -58,6 +58,32 @@ def parse_args():
     return parser.parse_args()
 
 
+class ProjectCategories:
+    def __init__(self, quantity):
+        self.quantity = quantity
+
+    # 将字典数据转换为列表数据，同时做数据异常处理
+    def get_result_list(self, data_dict):
+        data_list = []
+        for i in range(self.quantity):
+            # 存在字典中的类别依次加入list中
+            if i in data_dict:
+                data_list.append(data_dict[i])
+            # 无对应值的类别补一个异常值
+            else:
+                data_list.append('异常')
+        return data_list
+
+    def get_lanes_list(self, data_dict):
+        data_list = []
+        for i in range(self.quantity):
+            if i in data_dict:
+                data_list.append(data_dict[i])
+            else:
+                data_list.append([0, 0])
+        return data_list
+
+
 # 计算两点之间的距离
 def calculate_distance(point1, point2):
     """
@@ -271,7 +297,7 @@ def calculate_headway_time(lanes_arrays):
 
 
 # 通过进口道车道数计算各轨迹对应的行驶车道，返回一个按轨迹顺序存储的列表
-def calculate_exit_correspond_lanes(info_list, entrance_lanes, entrance_mask):
+def calculate_exit_correspond_lanes(info_list, entrance_lanes, entrance_mask, dict_to_list):
     # print(entrance_lanes)
     # 轨迹类别对应的车道数
     exit_correspond_lanes_dic = {}
@@ -314,11 +340,12 @@ def calculate_exit_correspond_lanes(info_list, entrance_lanes, entrance_mask):
 
     # print(exit_correspond_lanes_dic)
     # 轨迹排序
-    exit_correspond_lanes_list = []
-    print(exit_correspond_lanes_dic.keys())
+    # exit_correspond_lanes_list = []
+    print('1', exit_correspond_lanes_dic.keys())
     # 排序轨迹
-    for i in range(len(exit_correspond_lanes_dic)):
-        exit_correspond_lanes_list.append(exit_correspond_lanes_dic[i])
+    exit_correspond_lanes_list = dict_to_list.get_lanes_list(exit_correspond_lanes_dic)
+    # for i in range(len(exit_correspond_lanes_dic)):
+    #     exit_correspond_lanes_list.append(exit_correspond_lanes_dic[i])
     # print(exit_correspond_lanes_list)
 
     return exit_correspond_lanes_list
@@ -450,7 +477,7 @@ def update_cars_dict(further_car_dict, stop_car_dict, lanes_num, mid_point,
 
 # 计算车头时距
 # 车头时距的基本概念是指在同一车道上行驶的车辆队列中，”前后两辆车“的”前端“通过同一地点的时间差（使用出口道的停止线）。
-def calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas, exit_areas):
+def calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas, exit_areas, dict_to_list):
     # 获取出口道的mask
     exit_mask = get_each_mask(h, w, exit_areas)
     entrance_mask = get_each_mask(h, w, entrance_areas)
@@ -473,7 +500,7 @@ def calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entran
     # print(car_list)
 
     # 计算出口到轨迹对应的车道数
-    exit_correspond_lanes_list = calculate_exit_correspond_lanes(info_list, entrance_lane_num, entrance_mask)
+    exit_correspond_lanes_list = calculate_exit_correspond_lanes(info_list, entrance_lane_num, entrance_mask, dict_to_list)
 
     # 遍历四个mask
     for i, each_area_cars in enumerate(car_list):
@@ -496,6 +523,9 @@ def calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entran
                 max_lanes = exit_correspond_lanes_list[each_car[0]['track_cls']][0] + \
                             exit_correspond_lanes_list[each_car[0]['track_cls']][1]
                 share_lane = exit_correspond_lanes_list[each_car[0]['track_cls']][1]
+                # 按轨迹分车道时就有轨迹漏了的情况，也就是当前轨迹没有给到对应车道数，直接跳过，后续计算时会给出异常值
+                if max_lanes == 0:
+                    continue
                 # 将行驶到同一个mask的区域按照不同转向方向进行划分，因为它们不会同时出现。然后将每个方向第一帧记录下来
                 # 直行
                 if '直行' in each_car[0]['direction_cls']:
@@ -555,7 +585,7 @@ def calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entran
 # 车头间距
 # 车头间距，又称为空间车头间距，是指同一车道上行驶的车辆之间（进入出口道），”前车车头“与”后车车头“之间的实际距离。
 def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars, h, w,
-                                entrance_areas, exit_areas):
+                                entrance_areas, exit_areas, dict_to_list):
     # 获取出口道的mask
     exit_mask = get_each_mask(h, w, exit_areas)
     entrance_mask = get_each_mask(h, w, entrance_areas)
@@ -580,7 +610,7 @@ def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, 
     # print(car_list[0][27][0]['frame'])
 
     # 计算出口到轨迹对应的车道数
-    exit_correspond_lanes_list = calculate_exit_correspond_lanes(info_list, entrance_lane_num, entrance_mask)
+    exit_correspond_lanes_list = calculate_exit_correspond_lanes(info_list, entrance_lane_num, entrance_mask, dict_to_list)
 
     # 遍历四个mask(逻辑与计算车头时距差不多)
     for i, each_area_cars in enumerate(car_list):
@@ -830,7 +860,7 @@ def calculate_speed_at_intersection(info_list, intersection_area, length_per_pix
         else:
             speed_dict[track_list[0]['track_cls']].append(speed)
     track_speed_avg_list = []
-    print(speed_dict.keys())
+    print('2', speed_dict.keys())
     # 排序轨迹
     for i in range(len(speed_dict)):
         speed_list = speed_dict[i]
@@ -973,48 +1003,48 @@ def main(args):
     #                       [0.4133758544921875, 0.6970486111111112], [0.4065399169921875, 0.3932291666666667],
     #                       [0.4231414794921875, 0.3515625], [0.4075164794921875, 0.3116319444444444]]]
 
-    # # ---------------第二组测试数据---------------
-    # # 读取的txt数据
-    # txt_path = r'example\5.txt'
-    # # 底图图片
-    # image_path = r'example\5.jpg'
-    # # 超参
-    # threshold = 0.125
-    # min_cars = 5
-    #
-    # # 画面尺寸
-    # # w, h = (3810, 2160)
-    #
-    # mask = []  # 车道区域
-    # scale_line = [[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]]  # 比例尺线
-    # scale_length = 5 * 3.5  # 比例尺的实际尺寸，以m为单位
-    # entrance_areas = [[[0.4368133544921875, 0], [0.4368133544921875, 0.2482638888888889],
-    #                    [0.5149383544921875, 0.25], [0.5129852294921875, 0]],
-    #                   [[0.6838836669921875, 0.4565972222222222], [0.6838836669921875, 0.5677083333333334],
-    #                    [0.9973602294921875, 0.5763888888888888], [0.9963836669921875, 0.4739583333333333]],
-    #                   [[0.5276336669921875, 0.8125], [0.6125946044921875, 0.828125],
-    #                    [0.6155242919921875, 0.9930555555555556], [0.5276336669921875, 0.9965277777777778]],
-    #                   [[0.0002899169921875, 0.5347222222222222], [0.1321258544921875, 0.5225694444444444],
-    #                    [0.3791961669921875, 0.5434027777777778], [0.3762664794921875, 0.6527777777777778],
-    #                    [0.0017547607421875, 0.6145833333333334]]]  # 进口道区域
-    # entrance_lane_num = [[1, 0, 3, 0, 1], [1, 0, 3, 0, 1], [3, 0, 3, 0, 1], [1, 0, 2, 0, 2]]
-    # exit_areas = [[[0.5198211669921875, 0.8098958333333334], [0.4514617919921875, 0.7977430555555556],
-    #                [0.4524383544921875, 0.9956597222222222], [0.5256805419921875, 0.9973958333333334]],
-    #               [[0.6848602294921875, 0.5824652777777778], [0.6790008544921875, 0.6796875],
-    #                [0.9954071044921875, 0.7057291666666666], [0.9963836669921875, 0.6085069444444444]],
-    #               [[0.5247039794921875, 0.2526041666666667], [0.5989227294921875, 0.24913194444444445],
-    #                [0.5959930419921875, 0.0008680555555555555], [0.5188446044921875, 0.0008680555555555555]],
-    #               [[0.0012664794921875, 0.4105902777777778], [0.3850555419921875, 0.4296875],
-    #                [0.3791961669921875, 0.5303819444444444], [-0.0006866455078125, 0.5026041666666666]]]
-    # exit_lane_num = [[5, 0], [4, 0], [5, 0], [4, 0]]
-    # stop_lines = [[[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]],
-    #               [[0.6858367919921875, 0.421875], [0.6838836669921875, 0.5677083333333334]],
-    #               [[0.6223602294921875, 0.8263888888888888], [0.5256805419921875, 0.8107638888888888]],
-    #               [[0.3752899169921875, 0.6805555555555556], [0.3782196044921875, 0.5486111111111112]]]  # 停止线位置
-    # intersection_area = [[[0.4407196044921875, 0.2543402777777778], [0.3801727294921875, 0.3862847222222222],
-    #                       [0.3752899169921875, 0.6935763888888888], [0.4280242919921875, 0.7960069444444444],
-    #                       [0.6311492919921875, 0.8272569444444444], [0.6838836669921875, 0.7421875],
-    #                       [0.6848602294921875, 0.3845486111111111], [0.6096649169921875, 0.2560763888888889]]]
+    # ---------------第二组测试数据---------------
+    # 读取的txt数据
+    txt_path = r'example\5.txt'
+    # 底图图片
+    image_path = r'example\5.jpg'
+    # 超参
+    threshold = 0.125
+    min_cars = 5
+
+    # 画面尺寸
+    # w, h = (3810, 2160)
+
+    mask = []  # 车道区域
+    scale_line = [[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]]  # 比例尺线
+    scale_length = 5 * 3.5  # 比例尺的实际尺寸，以m为单位
+    entrance_areas = [[[0.4368133544921875, 0], [0.4368133544921875, 0.2482638888888889],
+                       [0.5149383544921875, 0.25], [0.5129852294921875, 0]],
+                      [[0.6838836669921875, 0.4565972222222222], [0.6838836669921875, 0.5677083333333334],
+                       [0.9973602294921875, 0.5763888888888888], [0.9963836669921875, 0.4739583333333333]],
+                      [[0.5276336669921875, 0.8125], [0.6125946044921875, 0.828125],
+                       [0.6155242919921875, 0.9930555555555556], [0.5276336669921875, 0.9965277777777778]],
+                      [[0.0002899169921875, 0.5347222222222222], [0.1321258544921875, 0.5225694444444444],
+                       [0.3791961669921875, 0.5434027777777778], [0.3762664794921875, 0.6527777777777778],
+                       [0.0017547607421875, 0.6145833333333334]]]  # 进口道区域
+    entrance_lane_num = [[1, 0, 3, 0, 1], [1, 0, 3, 0, 1], [3, 0, 3, 0, 1], [1, 0, 2, 0, 2]]
+    exit_areas = [[[0.5198211669921875, 0.8098958333333334], [0.4514617919921875, 0.7977430555555556],
+                   [0.4524383544921875, 0.9956597222222222], [0.5256805419921875, 0.9973958333333334]],
+                  [[0.6848602294921875, 0.5824652777777778], [0.6790008544921875, 0.6796875],
+                   [0.9954071044921875, 0.7057291666666666], [0.9963836669921875, 0.6085069444444444]],
+                  [[0.5247039794921875, 0.2526041666666667], [0.5989227294921875, 0.24913194444444445],
+                   [0.5959930419921875, 0.0008680555555555555], [0.5188446044921875, 0.0008680555555555555]],
+                  [[0.0012664794921875, 0.4105902777777778], [0.3850555419921875, 0.4296875],
+                   [0.3791961669921875, 0.5303819444444444], [-0.0006866455078125, 0.5026041666666666]]]
+    exit_lane_num = [[5, 0], [4, 0], [5, 0], [4, 0]]
+    stop_lines = [[[0.4407196044921875, 0.2517361111111111], [0.5139617919921875, 0.2534722222222222]],
+                  [[0.6858367919921875, 0.421875], [0.6838836669921875, 0.5677083333333334]],
+                  [[0.6223602294921875, 0.8263888888888888], [0.5256805419921875, 0.8107638888888888]],
+                  [[0.3752899169921875, 0.6805555555555556], [0.3782196044921875, 0.5486111111111112]]]  # 停止线位置
+    intersection_area = [[[0.4407196044921875, 0.2543402777777778], [0.3801727294921875, 0.3862847222222222],
+                          [0.3752899169921875, 0.6935763888888888], [0.4280242919921875, 0.7960069444444444],
+                          [0.6311492919921875, 0.8272569444444444], [0.6838836669921875, 0.7421875],
+                          [0.6848602294921875, 0.3845486111111111], [0.6096649169921875, 0.2560763888888889]]]
 
     # ==================================================================
     # ============================数据处理===============================
@@ -1059,6 +1089,8 @@ def main(args):
     headway_times = array_of_none
     headway_distances = array_of_none
     queue_length_list = array_of_none
+    # 实例化获取类别数量做异常处理的类
+    dict_to_list = ProjectCategories(len(direction_cls_list))
     if len(scale_line) != 0 and scale_length:
         scale_line = np.array(scale_line) * np.array((w - 1, h - 1))
         distance = calculate_distance(scale_line[0], scale_line[1])
@@ -1077,9 +1109,9 @@ def main(args):
             # 出口道区域exit_areas不为空
             if exit_areas:
                 headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas,
-                                                        exit_areas)
+                                                        exit_areas, dict_to_list)
                 headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars
-                                                                , h, w, entrance_areas, exit_areas)
+                                                                , h, w, entrance_areas, exit_areas, dict_to_list)
             else:
                 print("未输入出口道区域的mask信息")
             # 停止线stop_lines不得为空
