@@ -315,6 +315,7 @@ def calculate_exit_correspond_lanes(info_list, entrance_lanes, entrance_mask):
     # print(exit_correspond_lanes_dic)
     # 轨迹排序
     exit_correspond_lanes_list = []
+    print(exit_correspond_lanes_dic.keys())
     # 排序轨迹
     for i in range(len(exit_correspond_lanes_dic)):
         exit_correspond_lanes_list.append(exit_correspond_lanes_dic[i])
@@ -829,6 +830,7 @@ def calculate_speed_at_intersection(info_list, intersection_area, length_per_pix
         else:
             speed_dict[track_list[0]['track_cls']].append(speed)
     track_speed_avg_list = []
+    print(speed_dict.keys())
     # 排序轨迹
     for i in range(len(speed_dict)):
         speed_list = speed_dict[i]
