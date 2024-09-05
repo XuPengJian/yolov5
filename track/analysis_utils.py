@@ -341,7 +341,7 @@ def calculate_exit_correspond_lanes(info_list, entrance_lanes, entrance_mask, di
     # print(exit_correspond_lanes_dic)
     # 轨迹排序
     # exit_correspond_lanes_list = []
-    print('1', exit_correspond_lanes_dic.keys())
+    # print('1', exit_correspond_lanes_dic.keys())
     # 排序轨迹
     exit_correspond_lanes_list = dict_to_list.get_lanes_list(exit_correspond_lanes_dic)
     # for i in range(len(exit_correspond_lanes_dic)):
@@ -573,10 +573,8 @@ def calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entran
                             sequence_time_dic[cls] = average_time
     # print(sequence_time_dic)
 
-    sequence_time_list = []
     # 排序轨迹
-    for i in range(len(sequence_time_dic)):
-        sequence_time_list.append(sequence_time_dic[i])
+    sequence_time_list = dict_to_list.get_result_list(sequence_time_dic)
     print(sequence_time_list)
 
     return sequence_time_list
@@ -673,10 +671,8 @@ def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, 
                             sequence_distance_dic[cls] = average_distance
     # print(sequence_distance_dic)
 
-    sequence_distance_list = []
     # 排序轨迹
-    for i in range(len(sequence_distance_dic)):
-        sequence_distance_list.append(sequence_distance_dic[i])
+    sequence_distance_list = dict_to_list.get_result_list(sequence_distance_dic)
     print(sequence_distance_list)
 
     return sequence_distance_list
@@ -686,7 +682,7 @@ def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, 
 # 排队长度指路口进口道各转向的排队长度；定义为从路口信号灯转为绿灯时刻，该路口进口道各转向车流排队最后一辆车距离路口停止线的距离。
 # 直接算每根线的直线距离吧，然后选一根最短的
 def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num, direction_cls_list,
-                           h, w, entrance_areas):
+                           h, w, entrance_areas, dict_to_list):
     # 将停止线位置数据去归一化
     stop_segments = unormalize_line(h, w, stop_lines)
     # 计算进口道对应的mask
@@ -799,10 +795,7 @@ def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lan
                             queue_length_dict[cls] = None
     # print(queue_length_dict)
 
-    queue_length_list = []
-    # 排序轨迹
-    for i in range(len(queue_length_dict)):
-        queue_length_list.append(queue_length_dict[i])
+    queue_length_list = dict_to_list.get_result_list(queue_length_dict)
     print(queue_length_list)
 
     return queue_length_list
@@ -812,7 +805,7 @@ def calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lan
 # 速度可以通过计算车辆在连续两帧之间的移动距离除以时间差来计算。
 # 计算路口围合区域的平均速度
 
-def calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w):
+def calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w, dict_to_list):
     # 基于汽车id来分
     car_dict = {}
     # 基于轨迹分类来分
@@ -859,14 +852,11 @@ def calculate_speed_at_intersection(info_list, intersection_area, length_per_pix
             speed_dict[track_list[0]['track_cls']] = [speed]
         else:
             speed_dict[track_list[0]['track_cls']].append(speed)
-    track_speed_avg_list = []
-    print('2', speed_dict.keys())
+    # 先计算字典中的列表求均值
+    for traj_id, speed_list in speed_dict.items():
+        speed_dict[traj_id] = round(sum(speed_list) / len(speed_list), 2)
     # 排序轨迹
-    for i in range(len(speed_dict)):
-        speed_list = speed_dict[i]
-        avg_speed = round(sum(speed_list) / len(speed_list), 2)
-        track_speed_avg_list.append(avg_speed)
-        # print(f'第{i}条轨迹的平均速度为：', avg_speed)
+    track_speed_avg_list = dict_to_list.get_result_list(speed_dict)
     print(track_speed_avg_list)
     # print(speed_list)
     # avg_speed = sum(speed_list) / len(speed_list)
@@ -1100,7 +1090,7 @@ def main(args):
         # 必须用到的输入的判断
         # 路口区域intersection_area不得为空
         if intersection_area:
-            speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w)
+            speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w, dict_to_list)
         else:
             print("未输入路口mask信息")
         # 使用 all() 函数判断entrance_lane_num中是否所有元素都为0（即没传入该值）
@@ -1117,7 +1107,7 @@ def main(args):
             # 停止线stop_lines不得为空
             if stop_lines:
                 queue_length_list = calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num,
-                                                           direction_cls_list, h, w, entrance_areas)
+                                                           direction_cls_list, h, w, entrance_areas, dict_to_list)
             else:
                 print("未输入停止线相关信息")
         else:
