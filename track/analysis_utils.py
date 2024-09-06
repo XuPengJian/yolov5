@@ -993,7 +993,7 @@ def main(args):
     #                       [0.4133758544921875, 0.6970486111111112], [0.4065399169921875, 0.3932291666666667],
     #                       [0.4231414794921875, 0.3515625], [0.4075164794921875, 0.3116319444444444]]]
 
-    # # ---------------第二组测试数据---------------
+    # ---------------第二组测试数据---------------
     # # 读取的txt数据
     # txt_path = r'example\5.txt'
     # # 底图图片
@@ -1090,7 +1090,11 @@ def main(args):
         # 必须用到的输入的判断
         # 路口区域intersection_area不得为空
         if intersection_area:
-            speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w, dict_to_list)
+            try:
+                speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w, dict_to_list)
+            except Exception as e:
+                print("路口车速计算失败")
+
         else:
             print("未输入路口mask信息")
         # 使用 all() 函数判断entrance_lane_num中是否所有元素都为0（即没传入该值）
@@ -1098,16 +1102,22 @@ def main(args):
         if entrance_lane_num and entrance_areas:
             # 出口道区域exit_areas不为空
             if exit_areas:
-                headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas,
-                                                        exit_areas, dict_to_list)
-                headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars
-                                                                , h, w, entrance_areas, exit_areas, dict_to_list)
+                try:
+                    headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas,
+                                                            exit_areas, dict_to_list)
+                    headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars
+                                                                    , h, w, entrance_areas, exit_areas, dict_to_list)
+                except Exception as e:
+                    print("车头时距和车头间距计算失败")
             else:
                 print("未输入出口道区域的mask信息")
             # 停止线stop_lines不得为空
             if stop_lines:
-                queue_length_list = calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num,
-                                                           direction_cls_list, h, w, entrance_areas, dict_to_list)
+                try:
+                    queue_length_list = calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num,
+                                                               direction_cls_list, h, w, entrance_areas, dict_to_list)
+                except Exception as e:
+                    print("排队长度计算失败")
             else:
                 print("未输入停止线相关信息")
         else:
