@@ -500,7 +500,8 @@ def calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entran
     # print(car_list)
 
     # 计算出口到轨迹对应的车道数
-    exit_correspond_lanes_list = calculate_exit_correspond_lanes(info_list, entrance_lane_num, entrance_mask, dict_to_list)
+    exit_correspond_lanes_list = calculate_exit_correspond_lanes(info_list, entrance_lane_num, entrance_mask,
+                                                                 dict_to_list)
 
     # 遍历四个mask
     for i, each_area_cars in enumerate(car_list):
@@ -608,7 +609,8 @@ def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, 
     # print(car_list[0][27][0]['frame'])
 
     # 计算出口到轨迹对应的车道数
-    exit_correspond_lanes_list = calculate_exit_correspond_lanes(info_list, entrance_lane_num, entrance_mask, dict_to_list)
+    exit_correspond_lanes_list = calculate_exit_correspond_lanes(info_list, entrance_lane_num, entrance_mask,
+                                                                 dict_to_list)
 
     # 遍历四个mask(逻辑与计算车头时距差不多)
     for i, each_area_cars in enumerate(car_list):
@@ -626,6 +628,9 @@ def calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, 
                 max_lanes = exit_correspond_lanes_list[each_car[0]['track_cls']][0] + \
                             exit_correspond_lanes_list[each_car[0]['track_cls']][1]
                 share_lane = exit_correspond_lanes_list[each_car[0]['track_cls']][1]
+                # 按轨迹分车道时就有轨迹漏了的情况，也就是当前轨迹没有给到对应车道数，直接跳过，后续计算时会给出异常值
+                if max_lanes == 0:
+                    continue
                 if '直行' in each_car[0]['direction_cls']:
                     # 将表示车辆的id依次存入表示车道的列表，用作后续的距离计算
                     # 用每条车辆轨迹的第一条数据信息来检索，如取'id''track_cls'等
