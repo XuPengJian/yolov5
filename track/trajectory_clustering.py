@@ -459,8 +459,10 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     for i, r in enumerate(track_representation):
         p = track_count_percentage[i]
         color = bgr_colors[i]
-        img = cv2.polylines(img, [r], isClosed=False, color=color, thickness=round(p * 200))
-        img = cv2.arrowedLine(img, r[-2], r[-1], color=color, thickness=round(p * 200), line_type=cv2.LINE_8,
+        # 保证粗细最小值不为0
+        thickness = max(1, round(p * 200))
+        img = cv2.polylines(img, [r], isClosed=False, color=color, thickness=thickness)
+        img = cv2.arrowedLine(img, r[-2], r[-1], color=color, thickness=thickness, line_type=cv2.LINE_8,
                               tipLength=math.sqrt(p) * 2)
     # img = 0.8 * img_base + img - np.array([30, 30, 30])
     img = 0.1 * img_base + img
