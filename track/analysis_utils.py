@@ -15,6 +15,7 @@ import cv2
 from PIL import Image
 from trajectory_clustering import draw_lines
 import xlsxwriter as xw
+import time
 
 
 def parse_args():
@@ -902,6 +903,7 @@ def generate_data_excel(save_path, direction_cls_list, speed, headway_times, hea
 
 
 def main(args):
+    time1 = time.time()
     # 读取的txt数据
     txt_path = args.txt_path
     # 底图图片
@@ -999,10 +1001,10 @@ def main(args):
     #                       [0.4231414794921875, 0.3515625], [0.4075164794921875, 0.3116319444444444]]]
 
     # ---------------第二组测试数据---------------
-    # # 读取的txt数据
-    # txt_path = r'example\5.txt'
-    # # 底图图片
-    # image_path = r'example\5.jpg'
+    # 读取的txt数据
+    txt_path = r'example\5.txt'
+    # 底图图片
+    image_path = r'example\5.jpg'
     # # 超参
     # threshold = 0.125
     # min_cars = 5
@@ -1069,10 +1071,12 @@ def main(args):
     img_base = cv2.cvtColor(img_cv2, cv2.COLOR_RGB2BGR)
     # 宽高从这里拿
     h, w = img_base.shape[:2]
+    time2 = time.time()
 
     # 执行绘图算法，并获取info_list
     count_result, front_colors, info_list, direction_cls_list = draw_lines(img_base, txt_path, threshold=threshold,
                                                                            min_cars=min_cars)
+    time3 = time.time()
     # -----------------------------------------------------------
     # print('info_list第一条数据展示：', info_list[0])
 
@@ -1129,9 +1133,15 @@ def main(args):
             print("未输入进口道车道数或进口道区域的mask信息")
     else:
         print("未输入比例尺相关的信息")
+    time4 = time.time()
     # 先自己定义一个传入参数，用于文件生成
     generate_data_excel(args.save_path, direction_cls_list, speed, headway_times, headway_distances,
                         queue_length_list, count_result)
+    time5 = time.time()
+    # print('读取图片与相关变量初始化', time2 - time1)
+    # print('聚类计算', time3 - time2)
+    # print('后处理计算', time4 - time3)
+    # print('表格生成', time5 - time4)
 
 
 if __name__ == "__main__":

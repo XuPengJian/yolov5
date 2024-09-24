@@ -2,6 +2,7 @@ import colorsys
 from copy import deepcopy
 
 import numpy as np
+import time
 import math
 from math import pi
 import cv2
@@ -94,12 +95,14 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     # threshold = 0.125
     # print(len(trajectory))
 
+    time1 = time.time()
     # 先对轨迹中的接近重复的点进行去重（去重后再过滤）
     for key in trajectory:
         # 这里需要先对点进行去重
         points_new = remove_duplicates(trajectory[key])
         # 得到新的点,放入到适当位置
         trajectory[key] = points_new
+    time2 = time.time()
 
     # ------------先筛选点太少和长度太短的轨迹(前期筛选,于执行算法前)------------
     del_keys = []
@@ -121,6 +124,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     trajectory_list = []  # 轨迹信息
     cls_trajectory_list = []  # 类别信息
     id_trajectory_list = []  # 车辆id信息（保留下来的id，后面也要跟着聚类之后的分类来走）
+    time3 = time.time()
 
     # 曲线重采样，一种非线性的重采样，并让点变得均分(第一次)
     for key in trajectory:
@@ -141,6 +145,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         trajectory_list.append(points_new)
         cls_trajectory_list.append(cls_trajectory[key])
         id_trajectory_list.append(key)
+    time4 = time.time()
 
     # trajs = []
     # # 将数据改为三维的，以符合QuickBundle算法需求
@@ -160,6 +165,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
     metric = EuclideanMetric(feature)
     qb = QuickBundles(threshold=threshold, metric=metric)
     clusters = qb.cluster(trajectory_list)
+    time5 = time.time()
 
     # -----------------基于角度信息(cos与sin)聚类---------------------
     # 上面通过quick_bundles划分中一大类,再根据方向划分为两大类,并用列表储存
@@ -303,6 +309,7 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
                     id_track_dic[k + 1].append(id)
             i += 1  # 用于获取长度的索引值
         k += 2  # 每个小类分了两类
+    time6 = time.time()
 
     # print(track_dic)
     # print(cls_track_dic)
@@ -391,6 +398,13 @@ def cluster_tracks(txt_path, h, w, threshold=0.125, min_cars=5):
         middle_item = tmp[len(tracks_length_list) // 2]  # 排序后,取长度在中位数的长度
         middle_index = tracks_length_list.index(middle_item)  # 通过数值得到对应的index
         track_representation.append(track_dic[key][middle_index])
+    time7 = time.time()
+    # print("点去重", time2 - time1)
+    # print("删除点和轨迹：", time3 - time2)
+    # print("重采样", time4 - time3)
+    # print("聚类算法", time5 - time4)
+    # print("再次聚类", time6 - time5)
+    # print("数据后处理", time7 - time6)
 
     # print(track_representation)
     # print(track_count)
@@ -408,14 +422,18 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     imGray = cv2.cvtColor(img_base, cv2.COLOR_BGR2GRAY)
     img_base = np.stack([imGray, imGray, imGray], axis=2)
     # 这里注意track_dic, track_representation结果是归一化的
+    t1 = time.time()
     track_dic, track_cls_dic, id_track_dic, track_representation, track_count_percentage = cluster_tracks(txt_path, h,
                                                                                                           w,
                                                                                                           threshold=threshold,
                                                                                                           min_cars=min_cars)
+    t2 = time.time()
 
     # 输出info_list，用于后续新功能算法的使用
     start_vector_list, end_vector_list, direction_cls_list = get_track_representation_vector(track_representation)
+    t3 = time.time()
     info_list = output_info(txt_path, id_track_dic, start_vector_list, end_vector_list, direction_cls_list)
+    t4 = time.time()
 
     if len(track_representation) == 0:
         print('轨迹视频过短，无法生成轨迹聚类的结果')
@@ -470,6 +488,11 @@ def draw_lines(img_base, txt_path, threshold=0.125, min_cars=5):
     # iio.imwrite(txt_path.split('.')[0] + '.jpg', tmp_frame)
     # iio.imwrite(txt_path.replace('.txt', f'_{str(threshold).replace(".", "")}_{min_cars}.jpg'), tmp_frame)
     iio.imwrite(txt_path.replace('.txt', f'_result.jpg'), tmp_frame)
+    t5 = time.time()
+    # print("聚类方法", t2 - t1)
+    # print("轨迹匹配方向计算", t3 - t2)
+    # print("车辆信息", t4 - t3)
+    # print("画图", t5 - t4)
 
     # 作为后端输出的数据,列表套列表的格式
     track_count = []
@@ -666,7 +689,7 @@ if __name__ == '__main__':
     visualize_tracks(track_dic)
 
     # 2.cv2绘图测试（实际用于可视化绘图的）
-    count_result, front_colors, info_list = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
+    count_result, front_colors, info_list, direction_cls_list = draw_lines(img_base, txt_path, threshold=threshold, min_cars=min_cars)
     print('轨迹总数:', sum(count_result[0]))
     print('info_list第一条数据展示：', info_list[0])
 
