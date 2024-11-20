@@ -833,6 +833,9 @@ def calculate_speed_at_intersection(info_list, intersection_area, length_per_pix
     for each_id in car_dict:
         total_distance = 0
         track_list = car_dict[each_id]
+        # 跳过只出现了一帧的车辆数据（该id对应只有一个框，即用于计算距离的中点只有一个，无法计算速度）
+        if len(track_list) == 1:
+            continue
         for i in range(len(track_list) - 1):
             start_x1 = track_list[i]['x1']
             start_y1 = track_list[i]['y1']
@@ -1001,10 +1004,10 @@ def main(args):
     #                       [0.4231414794921875, 0.3515625], [0.4075164794921875, 0.3116319444444444]]]
 
     # ---------------第二组测试数据---------------
-    # 读取的txt数据
-    txt_path = r'example\5.txt'
-    # 底图图片
-    image_path = r'example\5.jpg'
+    # # 读取的txt数据
+    # txt_path = r'example\5.txt'
+    # # 底图图片
+    # image_path = r'example\5.jpg'
     # # 超参
     # threshold = 0.125
     # min_cars = 5
@@ -1100,7 +1103,8 @@ def main(args):
         # 路口区域intersection_area不得为空
         if intersection_area:
             try:
-                speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w, dict_to_list)
+                speed = calculate_speed_at_intersection(info_list, intersection_area, length_per_pixel, h, w,
+                                                        dict_to_list)
             except Exception as e:
                 print("路口车速计算失败")
 
@@ -1112,9 +1116,11 @@ def main(args):
             # 出口道区域exit_areas不为空
             if exit_areas:
                 try:
-                    headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w, entrance_areas,
+                    headway_times = calculate_headway_times(info_list, entrance_lane_num, min_cars, h, w,
+                                                            entrance_areas,
                                                             exit_areas, dict_to_list)
-                    headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num, min_cars
+                    headway_distances = calculate_headway_distances(info_list, length_per_pixel, entrance_lane_num,
+                                                                    min_cars
                                                                     , h, w, entrance_areas, exit_areas, dict_to_list)
                 except Exception as e:
                     print("车头时距和车头间距计算失败")
@@ -1123,7 +1129,8 @@ def main(args):
             # 停止线stop_lines不得为空
             if stop_lines:
                 try:
-                    queue_length_list = calculate_queue_length(info_list, length_per_pixel, stop_lines, entrance_lane_num,
+                    queue_length_list = calculate_queue_length(info_list, length_per_pixel, stop_lines,
+                                                               entrance_lane_num,
                                                                direction_cls_list, h, w, entrance_areas, dict_to_list)
                 except Exception as e:
                     print("排队长度计算失败")
