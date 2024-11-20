@@ -72,7 +72,7 @@ def parse_args():
     parser.add_argument('--confidence', type=float, default=0.1,
                         help='检测结果中只有得分大于置信度的预测框会被保留下来')
     parser.add_argument('--nms_iou', type=float, default=0.3, help='非极大抑制所用到的nms_iou大小')
-    parser.add_argument('--mask_pt', type=str, default='',
+    parser.add_argument('--mask_pt', type=str, default='[]',
                         help='通过多边形用于框选出用于目标检测的区域,里面是[[[x, y][x, y]][[...]]]的形式')
 
     parser.add_argument('--video_path', type=str, default=r'D:\gitlab\cars_detection\yolov5\video\DJI_0056_test.mp4',
@@ -177,7 +177,7 @@ class YOLO_PREDICT:
         # show_config(**self._defaults)
 
         # 用于生成检测的mask掩码矩阵,相对于输入网络的input_shape来生成,如果mask_pt这个参数存在的话,否则为全图
-        if args.mask_pt:
+        if eval(args.mask_pt):
             self.mask = get_mask(input_shape[0], input_shape[1], eval(args.mask_pt))
         else:
             self.mask = np.array([])
